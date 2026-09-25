@@ -1,0 +1,6 @@
+{
+  "name": "NO BROKER - Zero Brokerage Real Estate",
+  "description": "Apna Sapno Ka Ghar Dhundhe - Bina Kisi Brokerage Ke. India's premier zero-brokerage residential and commercial property network.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

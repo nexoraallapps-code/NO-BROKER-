@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  
+  /* Exact Design Tokens from DESIGN.MD */
+  --color-surface: #fbf9f6;
+  --color-surface-dim: #dbdad7;
+  --color-surface-bright: #fbf9f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f5f3f0;
+  --color-surface-container: #efeeeb;
+  --color-surface-container-high: #eae8e5;
+  --color-surface-container-highest: #e4e2df;
+  --color-on-surface: #1b1c1a;
+  --color-on-surface-variant: #45464d;
+  --color-inverse-surface: #30312f;
+  --color-inverse-on-surface: #f2f0ed;
+  --color-outline: #76777d;
+  --color-outline-variant: #c6c6cd;
+  
+  /* Brand specific colors from DESIGN.MD */
+  --color-deep-onyx: #0F172A;
+  --color-neutral-dark: #0A0F1D;
+  --color-cream-silk: #FAF8F5;
+  --color-bronze-gold: #C28E52;
+  --color-bronze-gold-hover: #AB773D;
+  --color-forest-emerald: #0F5132;
+  --color-text-muted: #64748B;
+  --color-surface-soft: #F1F5F9;
+}
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+html.dark {
+  background-color: var(--color-neutral-dark);
+  color: #F1F5F9;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.dark body {
+  background-color: var(--color-neutral-dark);
+  color: #F1F5F9;
+}
+
+h1, h2, h3, .font-serif, .editorial-title {
+  font-family: var(--font-serif);
+  letter-spacing: -0.015em;
+}
+
+/* Custom luxury subtle glows and borders from DESIGN.MD */
+.luxury-border {
+  border-color: rgba(194, 142, 82, 0.25);
+}
+
+.luxury-glass {
+  background: rgba(251, 249, 246, 0.88);
+  backdrop-filter: blur(16px);
+}
+
+.dark .luxury-glass {
+  background: rgba(10, 15, 29, 0.88);
+  backdrop-filter: blur(16px);
+}
