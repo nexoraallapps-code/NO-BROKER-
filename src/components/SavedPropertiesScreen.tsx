@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Property, UserProfile } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
   Heart, 
   ArrowLeft, 
@@ -11,7 +12,8 @@ import {
   Home,
   Eye,
   Share2,
-  Check
+  Check,
+  MessageSquare
 } from 'lucide-react';
 
 interface SavedPropertiesScreenProps {
@@ -284,10 +286,21 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
 
                       <button
                         onClick={() => onContactOwner(property)}
-                        className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                        className="py-3 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                       >
-                        Contact
+                        Call
                       </button>
+
+                      <a
+                        href={generateOwnerWhatsAppUrl(property)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-3 px-3.5 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        title={`Chat on WhatsApp with ${property.owner.name}`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-emerald-300" />
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </a>
 
                       <button
                         onClick={() => onRemoveSaved(property.id)}

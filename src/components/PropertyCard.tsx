@@ -1,12 +1,14 @@
 import React from 'react';
 import { Property } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
   Heart, 
   MapPin, 
   ShieldCheck, 
   Phone, 
   Eye, 
-  Compass
+  Compass,
+  MessageSquare
 } from 'lucide-react';
 
 interface PropertyCardProps {
@@ -143,9 +145,22 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               </span>
               <span className="text-[11px] text-slate-400">(Owner)</span>
             </div>
-            <span className="text-[11px] text-slate-400">
-              Active {property.owner.responseTime}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">
+                Active {property.owner.responseTime}
+              </span>
+              <a
+                href={generateOwnerWhatsAppUrl(property)}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[11px] text-[#0F5132] dark:text-emerald-400 hover:text-emerald-700 font-bold transition-colors cursor-pointer ml-1"
+                title={`Chat on WhatsApp with ${property.owner.name}`}
+              >
+                <MessageSquare className="w-3 h-3" />
+                <span>WhatsApp</span>
+              </a>
+            </div>
           </div>
         </div>
 

@@ -67,8 +67,9 @@ export const Hero: React.FC<HeroProps> = ({
     setIsDetectingLocation(true);
     setTimeout(() => {
       setIsDetectingLocation(false);
-      setSearchQuery('Bandra West (Near Me)');
-      handleExecuteSearch('Bandra West');
+      const topLocality = cityLocalities[0] || 'Vaishali Nagar';
+      setSearchQuery(`${topLocality} (Near Me)`);
+      handleExecuteSearch(topLocality);
     }, 600);
   };
 
@@ -187,7 +188,15 @@ export const Hero: React.FC<HeroProps> = ({
                     setShowLocalitySuggestions(true);
                   }}
                   onFocus={() => setShowLocalitySuggestions(true)}
-                  placeholder="e.g. Bandra, Worli, BKC..."
+                  placeholder={
+                    selectedCity === 'Jaipur'
+                      ? 'e.g. Vaishali Nagar, Malviya Nagar, C-Scheme...'
+                      : selectedCity === 'Delhi NCR'
+                      ? 'e.g. Golf Course Road, Cyber City, Greater Kailash...'
+                      : selectedCity === 'Bangalore'
+                      ? 'e.g. Indiranagar, Koramangala, Whitefield...'
+                      : 'e.g. Bandra, Worli, BKC...'
+                  }
                   className="w-full pl-9 pr-14 py-2.5 bg-white dark:bg-slate-800/90 border border-slate-300/80 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:border-[#C28E52] focus:ring-1 focus:ring-[#C28E52]"
                 />
                 
@@ -306,40 +315,114 @@ export const Hero: React.FC<HeroProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5 text-[#C28E52]" />
-                Trending:
+                Trending in {selectedCity}:
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('Sea Face Penthouses');
-                  handleExecuteSearch('Worli');
-                }}
-                className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
-              >
-                Sea Face Penthouses
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('Bandra West');
-                  handleExecuteSearch('Bandra West');
-                }}
-                className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
-              >
-                Bandra Luxury 3 BHK
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('BKC');
-                  handleExecuteSearch('BKC');
-                }}
-                className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
-              >
-                BKC Grade-A Offices
-              </button>
+              {selectedCity === 'Jaipur' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Vaishali Nagar');
+                      handleExecuteSearch('Vaishali Nagar');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Vaishali Nagar Villas
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('C-Scheme');
+                      handleExecuteSearch('C-Scheme');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    C-Scheme Penthouses
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Malviya Nagar');
+                      handleExecuteSearch('Malviya Nagar');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Malviya Nagar (WTP)
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Jagatpura');
+                      handleExecuteSearch('Jagatpura');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Jagatpura Gated Kothi
+                  </button>
+                </>
+              ) : selectedCity === 'Delhi NCR' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Golf Course Road');
+                      handleExecuteSearch('Golf Course Road');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Golf Course Road
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Cyber City');
+                      handleExecuteSearch('Cyber City');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Cyber City Corporate Hub
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Sea Face Penthouses');
+                      handleExecuteSearch('Worli');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Sea Face Penthouses
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('Bandra West');
+                      handleExecuteSearch('Bandra West');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    Bandra Luxury 3 BHK
+                  </button>
+                  <span>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('BKC');
+                      handleExecuteSearch('BKC');
+                    }}
+                    className="hover:text-[#C28E52] underline underline-offset-2 cursor-pointer"
+                  >
+                    BKC Grade-A Offices
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">

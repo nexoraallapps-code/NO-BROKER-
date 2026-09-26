@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Property, PropertyPurpose, PropertyType, UserProfile } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
+import { CITIES, LOCALITIES_BY_CITY } from '../data/mockProperties';
 import { 
   Search, 
   MapPin, 
@@ -38,6 +40,7 @@ interface SearchFilterConsoleScreenProps {
   onOpenMap: () => void;
   initialPurpose?: PropertyPurpose;
   initialCity?: string;
+  initialQuery?: string;
   user: UserProfile;
 }
 
@@ -51,6 +54,7 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
   onOpenMap,
   initialPurpose = 'rent',
   initialCity = 'Mumbai',
+  initialQuery = '',
   user,
 }) => {
   // Intent
@@ -58,7 +62,13 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
   const [city, setCity] = useState<string>(initialCity);
   
   // Locality tags
-  const [tags, setTags] = useState<string[]>(['Bandra West (W)', 'Pali Hill']);
+  const [tags, setTags] = useState<string[]>(() => {
+    if (initialQuery && initialQuery.trim()) {
+      return [initialQuery.trim()];
+    }
+    const defaultLocs = LOCALITIES_BY_CITY[initialCity] || [];
+    return defaultLocs.length > 0 ? [defaultLocs[0]] : [];
+  });
   const [inputLocality, setInputLocality] = useState('');
   
   // Radius proximity
@@ -137,7 +147,8 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
     setSelectedFurnishing('Fully Furnished');
     setSelectedPossession('Immediate Move-in');
     setSelectedAmenities([]);
-    setTags(['Bandra West (W)']);
+    const defaultLocs = LOCALITIES_BY_CITY[city] || [];
+    setTags(defaultLocs.length > 0 ? [defaultLocs[0]] : []);
   };
 
   const brokerageSavings = useMemo(() => {
@@ -155,9 +166,24 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
       if (purpose === 'commercial' && p.purpose !== 'commercial') return false;
       // Budget check
       if (p.price > maxBudget) return false;
+
+      // Locality tags filter (if tags specified, match if any tag matches location/subLocality/title)
+      if (tags.length > 0) {
+        const matchesTag = tags.some((t) => {
+          const cleanTag = t.replace(/\(.*?\)/g, '').trim().toLowerCase();
+          if (!cleanTag) return true;
+          return (
+            p.subLocality.toLowerCase().includes(cleanTag) ||
+            p.location.toLowerCase().includes(cleanTag) ||
+            p.title.toLowerCase().includes(cleanTag)
+          );
+        });
+        if (!matchesTag) return false;
+      }
+
       return true;
     });
-  }, [properties, city, purpose, maxBudget]);
+  }, [properties, city, purpose, maxBudget, tags]);
 
   return (
     <div className="w-full min-h-screen bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] pb-24">
@@ -253,14 +279,19 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                     <MapPin className="w-4 h-4 text-[#C28E52]" />
                     <select
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      onChange={(e) => {
+                        const newCity = e.target.value;
+                        setCity(newCity);
+                        const cityLocs = LOCALITIES_BY_CITY[newCity] || [];
+                        setTags(cityLocs.length > 0 ? [cityLocs[0]] : []);
+                      }}
                       className="bg-transparent font-serif font-bold text-sm text-[#0F172A] dark:text-white outline-none cursor-pointer"
                     >
-                      <option value="Mumbai">Mumbai</option>
-                      <option value="Delhi NCR">Delhi NCR</option>
-                      <option value="Bangalore">Bangalore</option>
-                      <option value="Pune">Pune</option>
-                      <option value="Hyderabad">Hyderabad</option>
+                      {CITIES.map((c) => (
+                        <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                          {c}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 pointer-events-none" />
@@ -270,12 +301,13 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
               {/* Locality Search Input with Multi-Select Tags */}
               <div className="lg:col-span-6 flex flex-col justify-center px-4 py-2.5 bg-[#FAF8F5] dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 focus-within:border-[#C28E52] transition-colors">
                 <div className="flex items-center justify-between pb-1">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Neighborhoods / Pockets</label>
+                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Neighborhoods / Pockets in {city}</label>
                   <button
                     type="button"
                     onClick={() => {
-                      if (!tags.includes('Current Location (Bandra)')) {
-                        setTags([...tags, 'Current Location (Bandra)']);
+                      const primeLoc = (LOCALITIES_BY_CITY[city] && LOCALITIES_BY_CITY[city][0]) || 'Central Prime';
+                      if (!tags.includes(primeLoc)) {
+                        setTags([...tags, primeLoc]);
                       }
                     }}
                     className="inline-flex items-center gap-1 text-[11px] text-[#C28E52] hover:text-[#AB773D] font-semibold cursor-pointer"
@@ -307,9 +339,43 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                     value={inputLocality}
                     onChange={(e) => setInputLocality(e.target.value)}
                     onKeyDown={handleAddTag}
-                    placeholder={tags.length === 0 ? "Add Worli, Juhu, BKC, Pali Hill... (Press Enter)" : "Add another locality..."}
+                    placeholder={
+                      tags.length === 0
+                        ? city === 'Jaipur'
+                          ? 'Add Vaishali Nagar, Malviya Nagar, C-Scheme... (Press Enter)'
+                          : 'Add locality... (Press Enter)'
+                        : 'Add another locality...'
+                    }
                     className="flex-1 min-w-[140px] bg-transparent text-xs text-[#0F172A] dark:text-white placeholder:text-slate-400 outline-none py-1"
                   />
+                </div>
+
+                {/* Popular Localities Chips for Selected City */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-2 mt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase">Popular in {city}:</span>
+                  {(LOCALITIES_BY_CITY[city] || []).slice(0, 6).map((loc) => {
+                    const isSelected = tags.includes(loc);
+                    return (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setTags(tags.filter((t) => t !== loc));
+                          } else {
+                            setTags([...tags, loc]);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#C28E52] text-white shadow-xs font-bold'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#C28E52]/20 hover:text-[#C28E52] border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {isSelected ? '✓ ' : '+ '}{loc}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -864,18 +930,29 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                         <button
                           type="button"
                           onClick={() => onSelectProperty(prop)}
-                          className="px-4 py-2 rounded-xl bg-[#FAF8F5] hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs transition-colors cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-[#FAF8F5] hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs transition-colors cursor-pointer"
                         >
                           View Details
                         </button>
                         <button
                           type="button"
                           onClick={() => onContactOwner(prop)}
-                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>Direct Call</span>
+                          <Phone className="w-3.5 h-3.5 text-[#C28E52]" />
+                          <span>Call</span>
                         </button>
+                        <a
+                          href={generateOwnerWhatsAppUrl(prop)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-3 py-2 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          title={`Chat on WhatsApp with ${prop.owner.name}`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+                          <span className="hidden sm:inline">WhatsApp</span>
+                        </a>
                       </div>
                     </div>
                   </div>

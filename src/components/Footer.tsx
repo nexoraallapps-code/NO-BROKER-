@@ -16,6 +16,9 @@ interface FooterProps {
   onOpenAbout: () => void;
   onOpenContact: () => void;
   onOpenPrivacy: () => void;
+  onOpenPostProperty?: () => void;
+  onOpenMyProperties?: () => void;
+  onOpenSearchConsole?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
@@ -23,6 +26,9 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAbout,
   onOpenContact,
   onOpenPrivacy,
+  onOpenPostProperty,
+  onOpenMyProperties,
+  onOpenSearchConsole,
 }) => {
   return (
     <footer className="bg-[#0A0F1D] text-slate-400 border-t border-slate-800/80 pt-16 pb-24 md:pb-16 text-xs sm:text-sm">
@@ -95,10 +101,32 @@ export const Footer: React.FC<FooterProps> = ({
               Privé Services
             </div>
             <ul className="space-y-2 text-xs">
-              <li className="hover:text-white">Packers & Movers</li>
-              <li className="hover:text-white">Rental Agreements</li>
-              <li className="hover:text-white">Home Cleaning</li>
-              <li className="hover:text-white">Painting & Interiors</li>
+              <li>
+                <button
+                  onClick={onOpenPostProperty}
+                  className="hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  Post Property Free
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={onOpenMyProperties}
+                  className="hover:text-white transition-colors cursor-pointer text-left"
+                >
+                  My Properties Dashboard
+                </button>
+              </li>
+              {onOpenSearchConsole && (
+                <li>
+                  <button
+                    onClick={onOpenSearchConsole}
+                    className="hover:text-white transition-colors cursor-pointer text-left"
+                  >
+                    Search &amp; Filter Console
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
         </div>

@@ -5,12 +5,13 @@ import {
   Plus, 
   Truck, 
   User as UserIcon,
-  Menu
+  Menu,
+  Building2
 } from 'lucide-react';
 
 interface MobileBottomNavProps {
-  activeTab: 'explore' | 'shortlisted' | 'movers' | 'profile';
-  onSelectTab: (tab: 'explore' | 'shortlisted' | 'movers' | 'profile') => void;
+  activeTab: 'explore' | 'shortlisted' | 'properties' | 'profile';
+  onSelectTab: (tab: 'explore' | 'shortlisted' | 'properties' | 'profile') => void;
   onOpenPostProperty: () => void;
   savedCount: number;
 }
@@ -35,8 +36,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               : 'text-slate-500 dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
-          <Compass className="w-6 h-6" />
-          <span className="text-[11px]">Explore</span>
+          <Compass className="w-5 h-5" />
+          <span className="text-[10px]">Explore</span>
         </button>
 
         {/* Shortlisted with Badge */}
@@ -50,40 +51,38 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }`}
         >
           <div className="relative flex items-center justify-center">
-            <Heart className={`w-6 h-6 ${activeTab === 'shortlisted' ? 'fill-current text-[#C28E52]' : ''}`} />
+            <Heart className={`w-5 h-5 ${activeTab === 'shortlisted' ? 'fill-current text-[#C28E52]' : ''}`} />
             {savedCount > 0 && (
-              <span className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#C28E52] text-white text-[10px] leading-none flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-2 min-w-[15px] h-3.5 px-1 rounded-full bg-[#C28E52] text-white text-[9px] leading-none flex items-center justify-center font-bold">
                 {savedCount}
               </span>
             )}
           </div>
-          <span className="text-[11px]">Shortlisted</span>
+          <span className="text-[10px]">Saved</span>
         </button>
 
         {/* Post Free Raised Pill Button */}
         <button
           type="button"
           onClick={onOpenPostProperty}
-          className="flex flex-col items-center justify-center w-14 h-14 text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer"
+          className="flex flex-col items-center justify-center -mt-3 w-12 h-12 rounded-xl bg-[#0F172A] dark:bg-[#C28E52] text-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.25)] hover:bg-[#C28E52] transition-all active:scale-95 cursor-pointer"
         >
-          <div className="w-11 h-11 rounded-lg bg-[#0F172A] dark:bg-[#C28E52] flex items-center justify-center text-white shadow-[0_4px_14px_rgba(15,23,42,0.2)] hover:bg-[#C28E52] transition-colors">
-            <Plus className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <span className="text-[11px] mt-0.5 font-medium">Post Free</span>
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+          <span className="sr-only">Post Free Property</span>
         </button>
 
-        {/* Movers */}
+        {/* My Properties (Active Tab) */}
         <button
           type="button"
-          onClick={() => onSelectTab('movers')}
+          onClick={() => onSelectTab('properties')}
           className={`flex flex-col items-center justify-center w-14 h-14 transition-colors gap-0.5 cursor-pointer ${
-            activeTab === 'movers'
+            activeTab === 'properties'
               ? 'text-[#0F172A] dark:text-white font-semibold'
               : 'text-slate-500 dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
-          <Truck className="w-6 h-6" />
-          <span className="text-[11px] truncate max-w-[54px]">Movers</span>
+          <Building2 className="w-5 h-5" />
+          <span className="text-[10px]">Properties</span>
         </button>
 
         {/* Menu / Profile */}
@@ -96,11 +95,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               : 'text-slate-500 dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
-          <Menu className="w-6 h-6" />
-          <span className="text-[11px]">Menu</span>
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px]">Menu</span>
         </button>
 
       </div>
     </nav>
   );
 };
+

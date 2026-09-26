@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   Building,
-  Search
+  Search,
+  HelpCircle
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -26,12 +27,10 @@ interface HeaderProps {
   onSelectPurpose: (purpose: PropertyPurpose) => void;
   onOpenPostProperty: () => void;
   onOpenAuth: () => void;
-  onOpenMovers: () => void;
-  onOpenReferral: () => void;
   onOpenShortlisted: () => void;
   onOpenPropertyDetails?: () => void;
   onOpenSearchConsole?: () => void;
-  onOpenUnlockContacts?: () => void;
+  onOpenMyProperties?: () => void;
   onOpenProfile: () => void;
   user: UserProfile;
   onLogout: () => void;
@@ -46,12 +45,10 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectPurpose,
   onOpenPostProperty,
   onOpenAuth,
-  onOpenMovers,
-  onOpenReferral,
   onOpenShortlisted,
   onOpenPropertyDetails,
   onOpenSearchConsole,
-  onOpenUnlockContacts,
+  onOpenMyProperties,
   onOpenProfile,
   user,
   onLogout,
@@ -86,32 +83,43 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-expanded={cityDropdownOpen}
               >
                 <MapPin className="w-3.5 h-3.5 text-[#C28E52]" />
-                <span className="max-w-[85px] sm:max-w-none truncate">{selectedCity}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <span className="max-w-[85px] sm:max-w-none truncate font-semibold">{selectedCity}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {cityDropdownOpen && (
-                <div className="absolute left-0 mt-1.5 w-44 rounded-md shadow-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5 z-50">
-                  <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Select Metropolis
+                <div className="absolute left-0 mt-1.5 w-52 max-h-80 overflow-y-auto rounded-xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-2 z-50 divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <div className="px-3.5 pb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>Select Metropolis</span>
+                    <span className="text-[10px] text-[#C28E52] font-semibold">{CITIES.length} Cities</span>
                   </div>
-                  {CITIES.map((city) => (
-                    <button
-                      key={city}
-                      onClick={() => {
-                        onSelectCity(city);
-                        setCityDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                        selectedCity === city
-                          ? 'text-[#C28E52] bg-[#FAF8F5] dark:bg-slate-800/60 font-semibold'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      {city}
-                      {selectedCity === city && <span className="w-1.5 h-1.5 rounded-full bg-[#C28E52]"></span>}
-                    </button>
-                  ))}
+                  <div className="py-1">
+                    {CITIES.map((city) => (
+                      <button
+                        key={city}
+                        onClick={() => {
+                          onSelectCity(city);
+                          setCityDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                          selectedCity === city
+                            ? 'text-[#C28E52] bg-[#FAF8F5] dark:bg-slate-800/80 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <MapPin className={`w-3.5 h-3.5 ${selectedCity === city ? 'text-[#C28E52]' : 'text-slate-400'}`} />
+                          <span>{city}</span>
+                          {city === 'Jaipur' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
+                              Heritage Prime
+                            </span>
+                          )}
+                        </span>
+                        {selectedCity === city && <span className="w-2 h-2 rounded-full bg-[#C28E52]"></span>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -159,49 +167,11 @@ export const Header: React.FC<HeaderProps> = ({
                 Search Console
               </button>
             )}
-
-            <button
-              onClick={onOpenMovers}
-              className="px-3 py-1.5 text-xs lg:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Truck className="w-3.5 h-3.5 text-[#C28E52]" />
-              Packers & Movers
-            </button>
-
-            {onOpenPropertyDetails && (
-              <button
-                onClick={onOpenPropertyDetails}
-                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 text-xs lg:text-sm font-semibold text-[#C28E52] hover:text-[#AB773D] transition-colors cursor-pointer"
-              >
-                <Building className="w-3.5 h-3.5" />
-                Property Monograph
-              </button>
-            )}
-
-            <button
-              onClick={onOpenReferral}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs lg:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <Gift className="w-3.5 h-3.5 text-[#C28E52]" />
-              Refer & Earn
-            </button>
           </nav>
 
           {/* Right Zone: Actions (Post Free, DarkMode, Shortlist, Auth/Profile) */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Contact Quota Quick Pill */}
-            {onOpenUnlockContacts && (
-              <button
-                type="button"
-                onClick={onOpenUnlockContacts}
-                title="Unlock Verified Owner Contacts"
-                className="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-100 dark:bg-amber-950/60 text-[#80551F] dark:text-amber-300 border border-[#C28E52]/30 hover:border-[#C28E52] transition-colors cursor-pointer"
-              >
-                <span>Quota: {user.contactsRemaining}/5</span>
-              </button>
-            )}
-
             {/* Dark Mode Switch */}
             <button
               type="button"
@@ -298,13 +268,28 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => {
                         setUserDropdownOpen(false);
+                        if (onOpenMyProperties) {
+                          onOpenMyProperties();
+                        } else {
+                          onOpenProfile();
+                        }
+                      }}
+                      className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="font-semibold text-[#0F172A] dark:text-white">My Properties (Landlord Hub)</span>
+                      <Building className="w-3.5 h-3.5 text-[#C28E52]" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setUserDropdownOpen(false);
                         onOpenPostProperty();
                       }}
                       className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer"
                     >
-                      <span>My Posted Properties</span>
-                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400">
-                        {user.postedPropertyIds.length}
+                      <span>Post Free Property</span>
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-950 text-[#C28E52] font-bold px-1.5 py-0.5 rounded">
+                        0% Brok.
                       </span>
                     </button>
 
@@ -348,7 +333,32 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-3 px-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 space-y-2">
+          <div className="md:hidden py-3 px-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 space-y-3">
+            {/* Mobile City Selector */}
+            <div>
+              <div className="px-1 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Select City</span>
+                <span className="text-[#C28E52] font-semibold">{selectedCity}</span>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {CITIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      onSelectCity(c);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                      selectedCity === c
+                        ? 'bg-[#C28E52] text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-md">
               <button
                 onClick={() => {
@@ -391,21 +401,24 @@ export const Header: React.FC<HeaderProps> = ({
                   onOpenPostProperty();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-center gap-1.5 p-2.5 rounded bg-[#C28E52] text-white font-semibold"
+                className="col-span-2 flex items-center justify-center gap-1.5 p-2.5 rounded bg-[#C28E52] text-white font-semibold"
               >
                 <PlusCircle className="w-4 h-4" />
                 Post Property Free
               </button>
-              <button
-                onClick={() => {
-                  onOpenMovers();
-                  setMobileMenuOpen(false);
-                }}
-                className="flex items-center justify-center gap-1.5 p-2.5 rounded border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-medium"
-              >
-                <Truck className="w-4 h-4 text-[#C28E52]" />
-                Packers & Movers
-              </button>
+
+              {onOpenMyProperties && (
+                <button
+                  onClick={() => {
+                    onOpenMyProperties();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="col-span-2 flex items-center justify-center gap-1.5 p-2.5 rounded border border-emerald-600/40 bg-emerald-50 dark:bg-emerald-950/40 text-[#0F5132] dark:text-emerald-400 font-semibold"
+                >
+                  <Building className="w-4 h-4" />
+                  My Properties (Owner Dashboard)
+                </button>
+              )}
 
               {onOpenSearchConsole && (
                 <button

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Property, UserProfile } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
   X, 
   MapPin, 
@@ -420,13 +421,14 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
                   )}
 
                   <a
-                    href={`https://wa.me/919820048291?text=Hi%20${encodeURIComponent(property.owner.name)},%20I%20am%20interested%20in%20your%20property%20${encodeURIComponent(property.title)}%20listed%20on%20NO%20BROKER.`}
+                    href={generateOwnerWhatsAppUrl(property)}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer group"
+                    title={`Chat on WhatsApp with ${property.owner.name}`}
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>WhatsApp Landlord Directly</span>
+                    <MessageSquare className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+                    <span>Chat on WhatsApp</span>
                   </a>
 
                   <button

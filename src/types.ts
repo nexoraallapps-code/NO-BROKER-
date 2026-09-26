@@ -25,6 +25,7 @@ export interface Property {
   furnishing: FurnishingState;
   facing: string;
   images: string[];
+  photos?: string[];
   description?: string;
   owner: {
     name: string;

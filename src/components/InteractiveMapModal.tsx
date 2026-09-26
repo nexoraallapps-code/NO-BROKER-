@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Property } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
   X, 
   MapPin, 
@@ -8,7 +9,8 @@ import {
   ShieldCheck, 
   Phone, 
   Eye, 
-  ArrowRight 
+  ArrowRight,
+  MessageSquare
 } from 'lucide-react';
 
 interface InteractiveMapModalProps {
@@ -43,7 +45,7 @@ export const InteractiveMapModal: React.FC<InteractiveMapModalProps> = ({
               <span>Spatial Micro-Market Map</span>
             </div>
             <h3 className="text-sm sm:text-base font-bold font-serif hidden sm:inline">
-              Mumbai Western Coast &amp; Metro Arc
+              {activeProperty?.city ? `${activeProperty.city} Enclaves & Micro-Market Map` : 'Direct Owner Spatial Map'}
             </h3>
           </div>
 
@@ -181,16 +183,16 @@ export const InteractiveMapModal: React.FC<InteractiveMapModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
                     onClose();
                     onSelectProperty(activeProperty);
                   }}
-                  className="py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-center hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="py-2 px-2 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-center hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  View Details
+                  Details
                 </button>
                 <button
                   type="button"
@@ -198,10 +200,20 @@ export const InteractiveMapModal: React.FC<InteractiveMapModalProps> = ({
                     onClose();
                     onContactOwner(activeProperty);
                   }}
-                  className="py-2 px-3 rounded-lg bg-[#C28E52] hover:bg-[#AB773D] text-white text-xs font-semibold text-center shadow-xs"
+                  className="py-2 px-2 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold text-center shadow-xs"
                 >
-                  Contact Owner
+                  Call Owner
                 </button>
+                <a
+                  href={generateOwnerWhatsAppUrl(activeProperty)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 px-2 rounded-lg bg-[#0F5132] hover:bg-emerald-800 text-white text-xs font-semibold text-center shadow-xs flex items-center justify-center gap-1"
+                  title={`Chat on WhatsApp with ${activeProperty.owner.name}`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>WhatsApp</span>
+                </a>
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Property, PropertyType, PropertyPurpose, FurnishingState, UserProfile } from '../types';
+import { CITIES } from '../data/mockProperties';
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -35,7 +36,10 @@ import {
   SlidersHorizontal,
   Train,
   ShoppingBag,
-  Sparkle
+  Sparkle,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Globe
 } from 'lucide-react';
 
 interface PostPropertyScreenProps {
@@ -56,7 +60,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   onNavigateSaved,
 }) => {
   // Stepper State
-  const [activeStep, setActiveStep] = useState<number>(4);
+  const [activeStep, setActiveStep] = useState<number>(1);
 
   // Form State: Typology & Details
   const [propertyType, setPropertyType] = useState<string>('Flat / Apartment');
@@ -112,6 +116,56 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
     'Flat 702, Green View Heights, Pali Hill, Bandra West, Mumbai 400050'
   );
 
+  // Mock Image URL System State
+  const [photoInputMode, setPhotoInputMode] = useState<'url' | 'presets' | 'upload'>('url');
+  const [inputImageUrl, setInputImageUrl] = useState<string>('');
+  const [inputImageLabel, setInputImageLabel] = useState<string>('Living Room');
+  const [urlError, setUrlError] = useState<string>('');
+
+  // Curated High-Resolution Architectural Presets
+  const CURATED_IMAGE_PRESETS = [
+    {
+      label: 'Living Room',
+      name: 'Grand Salon Lounge',
+      url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Master Bedroom',
+      name: 'Primary Sanctuary',
+      url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Modular Kitchen',
+      name: 'Italian Chef Kitchen',
+      url: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Balcony Deck',
+      name: 'Panoramic Sky Deck',
+      url: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Spa Bathroom',
+      name: 'Marble Jacuzzi Suite',
+      url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Building Facade',
+      name: 'Architectural Elevation',
+      url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Swimming Pool',
+      name: 'Infinity Lap Pool',
+      url: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80',
+    },
+    {
+      label: 'Dining Foyer',
+      name: 'Formal Dining Foyer',
+      url: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1200&q=80',
+    },
+  ];
+
   // Owner State
   const [ownerName, setOwnerName] = useState<string>(user.name || 'Rajesh Sharma');
   const [ownerPhone, setOwnerPhone] = useState<string>(user.phone || '+91 98200 45120');
@@ -146,15 +200,112 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   };
 
   const removePhoto = (id: number) => {
-    if (photos.length <= 1) {
-      showToast('At least 1 photo is required for verified listings');
-      return;
-    }
     const remaining = photos.filter((p) => p.id !== id);
     if (!remaining.some((p) => p.isCover) && remaining.length > 0) {
       remaining[0].isCover = true;
     }
     setPhotos(remaining);
+    showToast('Photo removed');
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  const processFiles = (fileList: FileList | File[]) => {
+    const rawFiles = Array.from(fileList);
+    const validImageFiles = rawFiles.filter((f) => f.type.startsWith('image/'));
+
+    if (validImageFiles.length === 0) {
+      showToast('Please select valid image files (PNG, JPG, JPEG, WEBP)');
+      return;
+    }
+
+    if (photos.length >= 10) {
+      showToast('Maximum 10 photos allowed for this listing');
+      return;
+    }
+
+    const availableSlots = 10 - photos.length;
+    const filesToRead = validImageFiles.slice(0, availableSlots);
+
+    if (validImageFiles.length > availableSlots) {
+      showToast(`Only ${availableSlots} more photo(s) can be added (Max 10 total)`);
+    }
+
+    let loadedCount = 0;
+    const defaultLabels = ['Living Room', 'Master Bedroom', 'Modular Kitchen', 'Balcony Deck', 'Spa Bathroom', 'Building Facade'];
+
+    filesToRead.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const dataUrl = event.target.result as string;
+          const labelIndex = (photos.length + loadedCount) % defaultLabels.length;
+          const assignedLabel = defaultLabels[labelIndex];
+
+          setPhotos((prev) => {
+            const hasCover = prev.some((p) => p.isCover);
+            return [
+              ...prev,
+              {
+                id: Date.now() + Math.floor(Math.random() * 10000) + index,
+                url: dataUrl,
+                label: assignedLabel,
+                isCover: !hasCover && prev.length === 0,
+              },
+            ];
+          });
+
+          loadedCount += 1;
+          if (loadedCount === filesToRead.length) {
+            showToast(`${loadedCount} photo(s) uploaded successfully! 📸`);
+          }
+        }
+      };
+      reader.onerror = () => {
+        showToast(`Failed to upload ${file.name}`);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddImageUrl = (urlToAdd?: string, labelToAdd?: string) => {
+    const targetUrl = (urlToAdd || inputImageUrl).trim();
+    const targetLabel = labelToAdd || inputImageLabel || 'Living Room';
+
+    if (!targetUrl) {
+      setUrlError('Please enter or paste a valid web image URL');
+      return;
+    }
+
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('data:')) {
+      setUrlError('Image URL must start with http:// or https://');
+      return;
+    }
+
+    if (photos.length >= 10) {
+      showToast('Maximum 10 photos allowed for this listing');
+      return;
+    }
+
+    setUrlError('');
+    const newId = Date.now() + Math.floor(Math.random() * 10000);
+    const hasCover = photos.some((p) => p.isCover);
+
+    setPhotos((prev) => [
+      ...prev,
+      {
+        id: newId,
+        url: targetUrl,
+        label: targetLabel,
+        isCover: !hasCover && prev.length === 0,
+      },
+    ]);
+
+    if (!urlToAdd) {
+      setInputImageUrl('');
+    }
+    showToast(`Added ${targetLabel} photo URL! 🖼️`);
   };
 
   const addSamplePhoto = () => {
@@ -190,6 +341,15 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
     const rentNum = parseInt(cleanRent, 10);
     const id = `NB-${Date.now().toString().slice(-5)}`;
 
+    // Order photos so cover photo is always the primary display image
+    const cover = photos.find((p) => p.isCover);
+    const otherPhotos = photos.filter((p) => !p.isCover).map((p) => p.url);
+    const orderedPhotos = cover ? [cover.url, ...otherPhotos] : photos.map((p) => p.url);
+    const finalImages = orderedPhotos.length > 0 ? orderedPhotos : [
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80'
+    ];
+
     const newProp: Property = {
       id,
       title: `${bhk} Apartment - ${fullAddress.split(',')[1]?.trim() || locality}`,
@@ -210,7 +370,8 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
       status: availability === 'now' ? 'Ready to Move' : 'Within 15 Days',
       furnishing: (furnishing === 'Fully Furnished' ? 'Fully Furnished' : furnishing === 'Semi Furnished' ? 'Semi-Furnished' : 'Unfurnished') as FurnishingState,
       facing: 'North-East',
-      images: photos.map((p) => p.url),
+      images: finalImages,
+      photos: finalImages,
       description: description,
       amenities: selectedFacilities,
       owner: {
@@ -271,12 +432,6 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
             </button>
             <button onClick={onNavigateHome || onBack} className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">
               Commercial
-            </button>
-            <button onClick={onNavigateHome || onBack} className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">
-              Packers &amp; Movers
-            </button>
-            <button onClick={onNavigateHome || onBack} className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">
-              Refer &amp; Earn
             </button>
           </nav>
 
@@ -745,30 +900,353 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                     </span>
                   </div>
 
-                  {/* Upload Drop Zone */}
-                  <div
-                    onClick={addSamplePhoto}
-                    className="p-6 rounded-2xl bg-[#F5F3F0]/80 dark:bg-slate-800/80 border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#FAF8F5] transition-colors group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-white dark:bg-[#0F172A] flex items-center justify-center text-[#0F172A] dark:text-white group-hover:scale-105 transition-transform shadow-xs mb-2">
-                      <Camera className="w-6 h-6 text-[#C28E52]" />
-                    </div>
-                    <div className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white">
-                      Click to upload photos or drag &amp; drop
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      High-quality photos of Living Room, Bedroom, Kitchen, and Balcony (PNG, JPG up to 15MB each)
-                    </p>
+                  {/* Photo Input Method Selector */}
+                  <div className="flex items-center gap-1.5 p-1.5 bg-[#F5F3F0] dark:bg-slate-800 rounded-xl">
                     <button
                       type="button"
-                      className="mt-3 px-4 py-1.5 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] text-white text-xs font-bold cursor-pointer transition-colors"
+                      onClick={() => setPhotoInputMode('url')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        photoInputMode === 'url'
+                          ? 'bg-[#0F172A] text-white shadow-xs'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
                     >
-                      Browse Files
+                      <LinkIcon className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span>Paste Web Image URL</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoInputMode('presets')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        photoInputMode === 'presets'
+                          ? 'bg-[#0F172A] text-white shadow-xs'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span>Curated Presets</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoInputMode('upload')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        photoInputMode === 'upload'
+                          ? 'bg-[#0F172A] text-white shadow-xs'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span>Device Upload</span>
                     </button>
                   </div>
 
+                  {/* Mode 1: Paste Web Image URL */}
+                  {photoInputMode === 'url' && (
+                    <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#0F172A] dark:text-white mb-1.5">
+                          Paste Image URL from the Web
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2.5">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                              <Globe className="w-4 h-4 text-[#C28E52]" />
+                            </span>
+                            <input
+                              type="url"
+                              value={inputImageUrl}
+                              onChange={(e) => {
+                                setInputImageUrl(e.target.value);
+                                setUrlError('');
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddImageUrl();
+                                }
+                              }}
+                              placeholder="e.g. https://images.unsplash.com/... or any image link"
+                              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-xs font-medium text-[#0F172A] dark:text-white border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#C28E52]"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={inputImageLabel}
+                              onChange={(e) => setInputImageLabel(e.target.value)}
+                              className="px-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-xs font-semibold text-[#0F172A] dark:text-white border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-[#C28E52] cursor-pointer"
+                            >
+                              <option value="Living Room">Living Room</option>
+                              <option value="Master Bedroom">Master Bedroom</option>
+                              <option value="Guest Bedroom">Guest Bedroom</option>
+                              <option value="Modular Kitchen">Modular Kitchen</option>
+                              <option value="Balcony Deck">Balcony Deck</option>
+                              <option value="Spa Bathroom">Spa Bathroom</option>
+                              <option value="Building Facade">Building Facade</option>
+                              <option value="Society Amenities">Society Amenities</option>
+                              <option value="Swimming Pool">Swimming Pool</option>
+                              <option value="Dining Foyer">Dining Foyer</option>
+                              <option value="Property View">Property View</option>
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddImageUrl()}
+                              disabled={photos.length >= 10}
+                              className="px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Image</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {urlError && (
+                          <p className="text-xs text-red-500 font-semibold mt-1.5 flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>{urlError}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Live Image URL Preview if entered */}
+                      {inputImageUrl && (inputImageUrl.startsWith('http://') || inputImageUrl.startsWith('https://')) && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs">
+                          <img
+                            src={inputImageUrl}
+                            alt="Live Preview"
+                            className="w-16 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-800"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-bold text-[#0F172A] dark:text-white block">
+                              Live Preview: Tagged as &ldquo;{inputImageLabel}&rdquo;
+                            </span>
+                            <span className="text-[11px] text-slate-400 truncate block">
+                              {inputImageUrl}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddImageUrl()}
+                            className="px-3 py-1.5 rounded-lg bg-[#C28E52] text-white text-xs font-bold hover:bg-[#B27E42] transition-colors cursor-pointer"
+                          >
+                            Confirm &amp; Add
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Quick 1-Click Demo Photo URLs */}
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-2">
+                          1-Click Demo Photo URLs (Click to add immediately):
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {CURATED_IMAGE_PRESETS.map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => handleAddImageUrl(preset.url, preset.label)}
+                              className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:border-[#C28E52] hover:text-[#C28E52] transition-colors cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Plus className="w-3 h-3 text-[#C28E52]" />
+                              <span>{preset.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode 2: Curated Architectural Presets */}
+                  {photoInputMode === 'presets' && (
+                    <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 space-y-3.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-bold text-[#0F172A] dark:text-white">
+                            Curated High-Resolution Architectural Photos
+                          </h3>
+                          <p className="text-[11px] text-slate-500">
+                            Click any photo to add it to your listing gallery.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            CURATED_IMAGE_PRESETS.slice(0, 4).forEach((p) => {
+                              handleAddImageUrl(p.url, p.label);
+                            });
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#0F172A] text-white text-[11px] font-bold hover:bg-[#C28E52] transition-colors cursor-pointer"
+                        >
+                          + Add Full Home Set (4 Photos)
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {CURATED_IMAGE_PRESETS.map((preset) => {
+                          const isAlreadyAdded = photos.some((p) => p.url === preset.url);
+                          return (
+                            <div
+                              key={preset.name}
+                              className="group relative rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-750 shadow-xs flex flex-col"
+                            >
+                              <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                                <img
+                                  src={preset.url}
+                                  alt={preset.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <span className="absolute top-2 left-2 text-[10px] font-bold bg-[#0F172A]/80 text-white px-2 py-0.5 rounded-md backdrop-blur-xs">
+                                  {preset.label}
+                                </span>
+                              </div>
+                              <div className="p-2.5 flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 truncate">
+                                  {preset.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddImageUrl(preset.url, preset.label)}
+                                  disabled={isAlreadyAdded || photos.length >= 10}
+                                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors cursor-pointer shrink-0 ${
+                                    isAlreadyAdded
+                                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 cursor-default'
+                                      : 'bg-[#0F172A] hover:bg-[#C28E52] text-white'
+                                  }`}
+                                >
+                                  {isAlreadyAdded ? 'Added ✓' : '+ Add'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode 3 / Real Photo Upload Drop Zone */}
+                  {photoInputMode === 'upload' && (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          processFiles(e.dataTransfer.files);
+                        }
+                      }}
+                      className={`p-6 sm:p-8 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center cursor-pointer transition-all group ${
+                        isDragging
+                          ? 'bg-[#C28E52]/15 border-[#C28E52] scale-[1.01]'
+                          : 'bg-[#F5F3F0]/80 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 hover:bg-[#FAF8F5] dark:hover:bg-slate-800 hover:border-[#C28E52]'
+                      }`}
+                    >
+                      {/* Hidden Native File Input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            processFiles(e.target.files);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+
+                      <div className="w-14 h-14 rounded-2xl bg-white dark:bg-[#0F172A] flex items-center justify-center text-[#0F172A] dark:text-white group-hover:scale-110 transition-transform shadow-sm mb-2.5">
+                        <Camera className="w-6 h-6 text-[#C28E52]" />
+                      </div>
+
+                      <div className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white">
+                        Click to upload photos or drag &amp; drop
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-sm">
+                        Select photos from your device (Living Room, Bedroom, Kitchen, Balcony). PNG, JPG, JPEG, WEBP up to 15MB each.
+                      </p>
+
+                      <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Choose Photos from Device</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addSamplePhoto();
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-600 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-[#C28E52]" />
+                          <span>+ Add Demo Photo</span>
+                        </button>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400 mt-2 font-medium">
+                        {photos.length}/10 Photos Selected • 100% Direct Owner Verification
+                      </span>
+                    </div>
+                  )}
+
                   {/* Previews Gallery Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {photos.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-800 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
+                        <ImageIcon className="w-6 h-6 text-[#C28E52]" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#0F172A] dark:text-white">
+                          No photos added yet
+                        </h4>
+                        <p className="text-[11px] text-slate-500 max-w-xs mx-auto mt-0.5">
+                          Listings with photos receive 5x more verified direct tenant responses.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            CURATED_IMAGE_PRESETS.slice(0, 3).forEach((p) => {
+                              handleAddImageUrl(p.url, p.label);
+                            });
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] text-white text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Load Sample Demo Photos</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPhotoInputMode('url')}
+                          className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <LinkIcon className="w-3.5 h-3.5 text-[#C28E52]" />
+                          <span>Paste Image URL</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {photos.map((photo) => (
                       <div
                         key={photo.id}
@@ -806,12 +1284,30 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                           </div>
                         )}
 
-                        <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-white/90 dark:bg-slate-900/90 text-[11px] font-bold text-[#0F172A] dark:text-white">
-                          {photo.label}
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                          <select
+                            value={photo.label}
+                            onChange={(e) => {
+                              const newLabel = e.target.value;
+                              setPhotos(photos.map((p) => (p.id === photo.id ? { ...p, label: newLabel } : p)));
+                            }}
+                            className="text-[10px] font-bold bg-white/95 dark:bg-slate-900/95 text-[#0F172A] dark:text-white rounded-md px-1.5 py-0.5 border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer focus:outline-none"
+                          >
+                            <option value="Living Room">Living Room</option>
+                            <option value="Master Bedroom">Master Bedroom</option>
+                            <option value="Guest Bedroom">Guest Bedroom</option>
+                            <option value="Modular Kitchen">Modular Kitchen</option>
+                            <option value="Balcony Deck">Balcony Deck</option>
+                            <option value="Spa Bathroom">Spa Bathroom</option>
+                            <option value="Building Facade">Building Facade</option>
+                            <option value="Society Amenities">Society Amenities</option>
+                            <option value="Property View">Property View</option>
+                          </select>
                         </div>
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
 
                 {/* SECTION C: Location & Address Card */}
@@ -853,12 +1349,9 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                             onChange={(e) => setCity(e.target.value)}
                             className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F3F0] dark:bg-slate-800 text-xs font-bold text-[#0F172A] dark:text-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#C28E52] cursor-pointer"
                           >
-                            <option>Mumbai</option>
-                            <option>Delhi NCR</option>
-                            <option>Bengaluru</option>
-                            <option>Pune</option>
-                            <option>Hyderabad</option>
-                            <option>Chennai</option>
+                            {CITIES.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
                           </select>
                           <ChevronDown className="w-4 h-4 absolute right-3.5 top-3 pointer-events-none text-slate-400" />
                         </div>
@@ -1341,7 +1834,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                 Services
               </div>
               <ul className="space-y-2 text-xs text-slate-500">
-                <li className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">White-Glove Packers &amp; Movers</li>
+                <li className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">Direct Title Deed Verification</li>
                 <li className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">Rental Agreements &amp; Legal</li>
                 <li className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">Interior Architecture</li>
                 <li className="hover:text-[#0F172A] dark:hover:text-white transition-colors cursor-pointer">Escrow Payment Assurance</li>

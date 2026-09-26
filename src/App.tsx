@@ -14,25 +14,35 @@ import { PropertyDetailsScreen } from './components/PropertyDetailsScreen';
 import { SearchFilterConsoleScreen } from './components/SearchFilterConsoleScreen';
 import { PostPropertyBanner } from './components/PostPropertyBanner';
 import { PostPropertyModal } from './components/PostPropertyModal';
-import { PackersAndMovers } from './components/PackersAndMovers';
-import { ReferAndEarn } from './components/ReferAndEarn';
 import { AuthModal } from './components/AuthModal';
 import { SavedPropertiesScreen } from './components/SavedPropertiesScreen';
-import { UnlockContactsScreen } from './components/UnlockContactsScreen';
-import { ReferralContactsScreen } from './components/ReferralContactsScreen';
 import { PostPropertyScreen } from './components/PostPropertyScreen';
+import { MyPropertiesScreen } from './components/MyPropertiesScreen';
 import { UserProfileModal } from './components/UserProfileModal';
 import { InteractiveMapModal } from './components/InteractiveMapModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
 import { InfoModal } from './components/InfoModals';
 
+export type AppView = 
+  | 'explore' 
+  | 'search-console' 
+  | 'saved-properties' 
+  | 'property-details' 
+  | 'post-property' 
+  | 'my-properties';
+
 export default function App() {
   const [properties, setProperties] = useState<Property[]>(() => {
     const saved = localStorage.getItem('nobroker_properties');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((p: Property) => p.id));
+          const missing = INITIAL_PROPERTIES.filter((p) => !existingIds.has(p.id));
+          return [...parsed, ...missing];
+        }
       } catch (e) {
         return INITIAL_PROPERTIES;
       }
@@ -42,12 +52,13 @@ export default function App() {
 
   const [selectedCity, setSelectedCity] = useState<string>('Mumbai');
   const [activePurpose, setActivePurpose] = useState<PropertyPurpose>('rent');
+  const [searchConsoleQuery, setSearchConsoleQuery] = useState<string>('');
   
   // Default selectedProperty is never null so the monograph screen always displays
   const [selectedProperty, setSelectedProperty] = useState<Property>(() => INITIAL_PROPERTIES[0]);
 
-  // Active view: 'explore' (main website) | 'search-console' (search & filter console screen) | 'saved-properties' (shortlisted screen) | 'property-details' (full architectural monograph screen) | 'unlock-contacts' (unlock contacts screen) | 'refer-contacts' (refer & get contacts screen) | 'post-property' (post property step 1-4 screen)
-  const [currentView, setCurrentView] = useState<'explore' | 'search-console' | 'saved-properties' | 'property-details' | 'unlock-contacts' | 'refer-contacts' | 'post-property'>('explore');
+  // Active core real estate view
+  const [currentView, setCurrentView] = useState<AppView>('explore');
 
   // Dark mode state: Check localStorage or system preference
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -75,7 +86,7 @@ export default function App() {
       phone: '',
       role: 'buyer',
       savedPropertyIds: ['NB-PLH-942', 'NB-CTR-810', 'NB-WRL-928'],
-      contactsRemaining: 3,
+      contactsRemaining: 5,
       postedPropertyIds: [],
     };
   });
@@ -86,7 +97,7 @@ export default function App() {
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [infoModalType, setInfoModalType] = useState<'about' | 'contact' | 'privacy' | null>(null);
-  const [mobileTab, setMobileTab] = useState<'explore' | 'shortlisted' | 'movers' | 'profile'>('explore');
+  const [mobileTab, setMobileTab] = useState<'explore' | 'shortlisted' | 'properties' | 'profile'>('explore');
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -118,10 +129,8 @@ export default function App() {
         setCurrentView('property-details');
       } else if (hash.includes('saved') || hash.includes('shortlist')) {
         setCurrentView('saved-properties');
-      } else if (hash.includes('refer') || hash.includes('invite')) {
-        setCurrentView('refer-contacts');
-      } else if (hash.includes('unlock') || hash.includes('contacts')) {
-        setCurrentView('unlock-contacts');
+      } else if (hash.includes('my-properties') || hash.includes('manage') || hash.includes('owner-dashboard') || hash.includes('listings')) {
+        setCurrentView('my-properties');
       } else if (hash.includes('post') || hash.includes('publish') || hash.includes('listing')) {
         setCurrentView('post-property');
       } else if (hash === '#explore') {
@@ -184,32 +193,12 @@ export default function App() {
     showToast('Your property is live on NO BROKER! 🎉');
   };
 
+  // 100% Free, Direct Owner Contact - No Quotas or Paywalls
   const handleContactOwner = (property: Property) => {
-    if (!user.isAuthenticated) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
-    if (user.contactsRemaining <= 0) {
-      setSelectedProperty(property);
-      setCurrentView('unlock-contacts');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      showToast('Contact limit reached. Unlock more contacts or invite friends.');
-      return;
-    }
-
     setSelectedProperty(property);
     setCurrentView('property-details');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast(`Direct contact connected with ${property.owner.name}`);
-  };
-
-  const handleUnlockSuccess = (addedContacts: number) => {
-    setUser((prev) => ({
-      ...prev,
-      contactsRemaining: (prev.contactsRemaining || 0) + addedContacts,
-    }));
-    showToast(`Successfully unlocked +${addedContacts} Direct Contacts! 🎉`);
+    showToast(`Direct verified contact for ${property.owner.name} ready!`);
   };
 
   const handleViewPropertyDetails = (property: Property) => {
@@ -231,7 +220,7 @@ export default function App() {
       phone: '',
       role: 'buyer',
       savedPropertyIds: [],
-      contactsRemaining: 3,
+      contactsRemaining: 5,
       postedPropertyIds: [],
     });
     showToast('Signed out successfully.');
@@ -247,16 +236,21 @@ export default function App() {
   }) => {
     setActivePurpose(params.purpose);
     setSelectedCity(params.city);
+    setSearchConsoleQuery(params.query || '');
     setCurrentView('search-console');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`Search console launched for ${params.city}`);
   };
 
   const handleSelectCategory = (type: PropertyType | 'all', bhk?: string) => {
+    if (type === 'office') {
+      setActivePurpose('commercial');
+    }
     const el = document.getElementById('properties-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
     }
+    showToast(`Browsing ${bhk || (type !== 'all' ? type : 'All Portfolios')}`);
   };
 
   const savedPropertiesList = properties.filter((p) => user.savedPropertyIds.includes(p.id));
@@ -273,7 +267,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Screen Switcher Bar for Quick Review & Direct Navigation */}
+      {/* Screen Switcher Bar for Direct Navigation Across Core Screens */}
       <div className="w-full bg-[#0F172A] text-white py-2 px-4 text-xs border-b border-slate-800 z-50">
         <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -281,18 +275,16 @@ export default function App() {
             <span className="text-slate-300 font-medium hidden sm:inline">Active Screen:</span>
             <span className="text-[#C28E52] font-bold uppercase tracking-wider text-[11px]">
               {currentView === 'explore'
-                ? 'Main Explore Website'
+                ? 'Explore / Home Screen'
                 : currentView === 'search-console'
-                ? 'Search & Filter Master Console'
+                ? 'Search & Filter Console'
                 : currentView === 'saved-properties'
-                ? 'Saved Properties Screen'
-                : currentView === 'unlock-contacts'
-                ? 'Unlock Contacts Screen'
-                : currentView === 'refer-contacts'
-                ? 'Refer & Get Contacts Screen'
+                ? 'Saved Properties'
                 : currentView === 'post-property'
-                ? 'Post Property (Step 1-4 Screen)'
-                : 'Architectural Monograph (Details Screen)'}
+                ? 'Sell / Post Property (Step 1-4)'
+                : currentView === 'my-properties'
+                ? 'My Properties (Owner Dashboard)'
+                : 'Property Details Screen'}
             </span>
           </div>
 
@@ -349,33 +341,7 @@ export default function App() {
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              Property Monograph Screen
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView('unlock-contacts');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`px-3 py-1 rounded-md text-xs transition-colors cursor-pointer font-semibold flex items-center gap-1.5 ${
-                currentView === 'unlock-contacts'
-                  ? 'bg-[#C28E52] text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              Unlock Contacts ({user.contactsRemaining}/5)
-            </button>
-            <button
-              onClick={() => {
-                setCurrentView('refer-contacts');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`px-3 py-1 rounded-md text-xs transition-colors cursor-pointer font-semibold flex items-center gap-1.5 ${
-                currentView === 'refer-contacts'
-                  ? 'bg-[#C28E52] text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              Refer &amp; Get Contacts
+              Property Details Screen
             </button>
             <button
               onClick={() => {
@@ -388,14 +354,52 @@ export default function App() {
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              Post Property (Step 1-4)
+              Sell / Post Property (Free)
+            </button>
+            <button
+              onClick={() => {
+                setCurrentView('my-properties');
+                setMobileTab('properties');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`px-3 py-1 rounded-md text-xs transition-colors cursor-pointer font-semibold flex items-center gap-1.5 ${
+                currentView === 'my-properties'
+                  ? 'bg-[#C28E52] text-white shadow-xs'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              My Properties Hub
             </button>
           </div>
         </div>
       </div>
 
-      {/* VIEW 1: Dedicated Post Property Full Wizard Screen */}
-      {currentView === 'post-property' ? (
+      {/* CORE VIEW ROUTING */}
+      {currentView === 'my-properties' ? (
+        /* VIEW 1: Dedicated My Properties Owner / Landlord Dashboard */
+        <MyPropertiesScreen
+          onBack={() => {
+            setCurrentView('explore');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          user={user}
+          properties={properties}
+          onSelectProperty={handleViewPropertyDetails}
+          onOpenPostProperty={() => {
+            setCurrentView('post-property');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateHome={() => {
+            setCurrentView('explore');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateSaved={() => {
+            setCurrentView('saved-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      ) : currentView === 'post-property' ? (
+        /* VIEW 2: Dedicated Post Property Full Wizard Screen */
         <PostPropertyScreen
           onBack={() => {
             setCurrentView('explore');
@@ -410,52 +414,6 @@ export default function App() {
           }}
           onNavigateSaved={() => {
             setCurrentView('saved-properties');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
-      ) : currentView === 'refer-contacts' ? (
-        /* VIEW 2: Dedicated Referral & Get Contacts Screen */
-        <ReferralContactsScreen
-          onBack={() => {
-            setCurrentView('unlock-contacts');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          user={user}
-          onUnlockSuccess={handleUnlockSuccess}
-          onNavigateUnlockContacts={() => {
-            setCurrentView('unlock-contacts');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onNavigatePropertyDetails={() => {
-            setCurrentView('property-details');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onNavigateHome={() => {
-            setCurrentView('explore');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onOpenPostProperty={() => setIsPostModalOpen(true)}
-          onOpenMovers={() => {
-            setCurrentView('explore');
-            setTimeout(() => {
-              const el = document.getElementById('movers-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }, 50);
-          }}
-        />
-      ) : currentView === 'unlock-contacts' ? (
-        /* VIEW 2: Dedicated Unlock Contacts Screen */
-        <UnlockContactsScreen
-          onBack={() => {
-            setCurrentView('property-details');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          user={user}
-          onUnlockSuccess={handleUnlockSuccess}
-          featuredProperty={selectedProperty}
-          onViewPropertyDetails={handleViewPropertyDetails}
-          onOpenReferralScreen={() => {
-            setCurrentView('refer-contacts');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
@@ -474,6 +432,7 @@ export default function App() {
           onOpenMap={() => setIsMapModalOpen(true)}
           initialPurpose={activePurpose}
           initialCity={selectedCity}
+          initialQuery={searchConsoleQuery}
           user={user}
         />
       ) : currentView === 'property-details' ? (
@@ -489,10 +448,6 @@ export default function App() {
           isSaved={user.savedPropertyIds.includes(selectedProperty.id)}
           onToggleSave={handleToggleSaveProperty}
           onOpenAuth={() => setIsAuthModalOpen(true)}
-          onOpenUnlockContacts={() => {
-            setCurrentView('unlock-contacts');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
           user={user}
           allProperties={properties}
         />
@@ -516,7 +471,7 @@ export default function App() {
           user={user}
         />
       ) : (
-        /* VIEW 6: Primary Full Website Exploration */
+        /* VIEW 6: Primary Core Real Estate Exploration (BUY, RENT, COMMERCIAL) */
         <>
           {/* Top Header */}
           <Header
@@ -532,14 +487,6 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenAuth={() => setIsAuthModalOpen(true)}
-            onOpenMovers={() => {
-              const el = document.getElementById('movers-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-            onOpenReferral={() => {
-              setCurrentView('refer-contacts');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
             onOpenShortlisted={() => {
               setCurrentView('saved-properties');
               setMobileTab('shortlisted');
@@ -553,8 +500,8 @@ export default function App() {
               setCurrentView('search-console');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onOpenUnlockContacts={() => {
-              setCurrentView('unlock-contacts');
+            onOpenMyProperties={() => {
+              setCurrentView('my-properties');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenProfile={() => setIsProfileModalOpen(true)}
@@ -594,21 +541,11 @@ export default function App() {
               onOpenMap={() => setIsMapModalOpen(true)}
             />
 
-            {/* 4. Packers & Movers Section */}
-            <div id="movers-section">
-              <PackersAndMovers currentCity={selectedCity} />
-            </div>
-
-            {/* 5. Post Property FREE Urging Banner */}
+            {/* 4. Post Property FREE Call-to-Action Banner */}
             <PostPropertyBanner onOpenPostModal={() => {
               setCurrentView('post-property');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }} />
-
-            {/* 6. Refer & Earn Section */}
-            <div id="referral-section">
-              <ReferAndEarn />
-            </div>
           </main>
 
           {/* Footer */}
@@ -620,6 +557,18 @@ export default function App() {
             onOpenAbout={() => setInfoModalType('about')}
             onOpenContact={() => setInfoModalType('contact')}
             onOpenPrivacy={() => setInfoModalType('privacy')}
+            onOpenPostProperty={() => {
+              setCurrentView('post-property');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenMyProperties={() => {
+              setCurrentView('my-properties');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenSearchConsole={() => {
+              setCurrentView('search-console');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         </>
       )}
@@ -635,12 +584,9 @@ export default function App() {
           } else if (tab === 'shortlisted') {
             setCurrentView('saved-properties');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else if (tab === 'movers') {
-            setCurrentView('explore');
-            setTimeout(() => {
-              const el = document.getElementById('movers-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }, 50);
+          } else if (tab === 'properties') {
+            setCurrentView('my-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           } else if (tab === 'profile') {
             if (user.isAuthenticated) {
               setIsProfileModalOpen(true);
@@ -699,7 +645,13 @@ export default function App() {
           onSelectProperty={handleViewPropertyDetails}
           onOpenPostProperty={() => {
             setIsProfileModalOpen(false);
-            setIsPostModalOpen(true);
+            setCurrentView('post-property');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateMyProperties={() => {
+            setIsProfileModalOpen(false);
+            setCurrentView('my-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onLogout={handleLogout}

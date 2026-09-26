@@ -28,6 +28,7 @@ interface UserProfileModalProps {
   onOpenPostProperty: () => void;
   onLogout: () => void;
   onOpenAuth: () => void;
+  onNavigateMyProperties?: () => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -41,6 +42,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenPostProperty,
   onLogout,
   onOpenAuth,
+  onNavigateMyProperties,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'posted'>('saved');
 
@@ -198,18 +200,32 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           {activeTab === 'posted' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2">
+              <div className="flex items-center justify-between pb-2 flex-wrap gap-2">
                 <p className="text-xs text-slate-500">Properties you have listed directly on NO BROKER.</p>
-                <button
-                  onClick={() => {
-                    onClose();
-                    onOpenPostProperty();
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-[#C28E52] hover:bg-[#AB773D] text-white text-xs font-bold flex items-center gap-1.5"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>List New Property</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {onNavigateMyProperties && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onNavigateMyProperties();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Building className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span>Manage All ({postedProperties.length})</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenPostProperty();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#C28E52] hover:bg-[#AB773D] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>List New Property</span>
+                  </button>
+                </div>
               </div>
 
               {postedProperties.length > 0 ? (
@@ -283,23 +299,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
-                  <span className="text-slate-400 uppercase font-bold text-[10px]">Contact Direct Quota</span>
-                  <div className="text-lg font-bold text-[#C28E52]">
-                    {user.contactsRemaining} Free Direct Owner Contacts
+                  <span className="text-slate-400 uppercase font-bold text-[10px]">Zero Brokerage</span>
+                  <div className="text-lg font-bold text-emerald-600">
+                    100% Direct Owner Listings
                   </div>
-                  <p className="text-[11px] text-slate-500">Unlocks automatically with OTP sign in.</p>
+                  <p className="text-[11px] text-slate-500">Connect with owners directly without any broker fee.</p>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
                   <span className="text-slate-400 uppercase font-bold text-[10px]">Savings Guarantee</span>
-                  <div className="text-lg font-bold text-emerald-600">
+                  <div className="text-lg font-bold text-[#C28E52]">
                     ₹0 Brokerage Paid
                   </div>
                   <p className="text-[11px] text-slate-500">You are protected under NO BROKER Charter.</p>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center">
                 {user.isAuthenticated ? (
                   <button
                     type="button"
@@ -307,7 +323,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       onClose();
                       onLogout();
                     }}
-                    className="py-2 px-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5"
+                    className="py-2 px-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign Out</span>

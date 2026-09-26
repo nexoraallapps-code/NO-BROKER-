@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Property, UserProfile } from '../types';
+import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
   Heart, 
   ArrowLeft, 
@@ -46,7 +47,6 @@ interface PropertyDetailsScreenProps {
   onOpenAuth: () => void;
   user: UserProfile;
   allProperties?: Property[];
-  onOpenUnlockContacts?: () => void;
 }
 
 export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
@@ -59,7 +59,6 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   onOpenAuth,
   user,
   allProperties = [],
-  onOpenUnlockContacts,
 }) => {
   const [revealedPhone, setRevealedPhone] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -754,32 +753,23 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
                 {/* Owner Direct Action Triggers */}
                 <div className="space-y-2.5 pt-1">
-                  {revealedPhone ? (
-                    <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-center">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Verified Direct Mobile</span>
-                      <a href={`tel:${property.owner.phone}`} className="text-base font-bold text-[#0F172A] dark:text-white tracking-wider block mt-1 hover:text-[#C28E52]">
-                        {property.owner.phone}
-                      </a>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleRevealPhone}
-                      className="w-full py-3.5 px-4 bg-[#0F172A] hover:bg-[#C28E52] text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                    >
-                      <Phone className="w-4 h-4" />
-                      <span>Call Owner Directly (+91 98200 •••••)</span>
-                    </button>
-                  )}
+                  <a
+                    href={`tel:${property.owner.phone}`}
+                    className="w-full py-3.5 px-4 bg-[#0F172A] hover:bg-[#C28E52] text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4 text-[#C28E52]" />
+                    <span>Call Owner ({property.owner.phone})</span>
+                  </a>
 
                   <a
-                    href={`https://wa.me/919820014892?text=Hello%20${encodeURIComponent(property.owner.name)},%20I%20am%20inquiring%20regarding%20${encodeURIComponent(property.title)}%20listed%20on%20NO%20BROKER.`}
+                    href={generateOwnerWhatsAppUrl(property)}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-full py-3 px-4 bg-[#0F5132] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+                    className="w-full py-3 px-4 bg-[#0F5132] hover:bg-emerald-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer group"
+                    title={`Chat on WhatsApp with ${property.owner.name}`}
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>WhatsApp {property.owner.name.split(' ')[0]}</span>
+                    <MessageSquare className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+                    <span>Chat on WhatsApp</span>
                   </a>
 
                   <button
@@ -809,30 +799,6 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                 </div>
               </div>
 
-              {/* Contact Quota Box */}
-              <div className="bg-[#FAF8F5] dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
-                <div className="flex justify-between font-semibold">
-                  <span className="text-slate-500 uppercase tracking-wider text-[10px]">Privé Contact Quota</span>
-                  <span className="text-[#C28E52]">{user.contactsRemaining} of 5 Remaining</span>
-                </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#C28E52] h-full rounded-full w-2/3" />
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Invite friends to unlock unlimited contacts and ₹1,000 Privé Concierge credit.
-                </p>
-                {onOpenUnlockContacts && (
-                  <button
-                    type="button"
-                    onClick={onOpenUnlockContacts}
-                    className="w-full mt-2 py-2 px-3 rounded-lg bg-[#C28E52]/10 hover:bg-[#C28E52] text-[#80551F] hover:text-white dark:text-amber-300 font-bold text-[11px] uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-[#C28E52]/30"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>Unlock More Contacts Screen →</span>
-                  </button>
-                )}
-              </div>
-
               {/* Safety Guarantee */}
               <div className="bg-white dark:bg-[#0F172A] p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-2">
                 <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
@@ -844,6 +810,10 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                   <li>• At-home biometric tenant registration.</li>
                   <li>• Direct-to-owner digital deposit escrow protection.</li>
                 </ul>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+                  <span>Owner Title ID: #{property.id}</span>
+                  <span className="text-emerald-600 font-semibold">100% Direct Certified</span>
+                </div>
               </div>
 
             </div>
@@ -903,6 +873,38 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         )}
       </main>
 
+      {/* Mobile Sticky Owner Action Bar */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-base font-serif font-bold text-[#0F172A] dark:text-white truncate">
+            {property.priceFormatted}
+          </div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>0% Brokerage</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href={`tel:${property.owner.phone}`}
+            className="px-3.5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors"
+          >
+            <Phone className="w-3.5 h-3.5 text-[#C28E52]" />
+            <span>Call</span>
+          </a>
+          <a
+            href={generateOwnerWhatsAppUrl(property)}
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2.5 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0 transition-colors"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Chat on WhatsApp</span>
+          </a>
+        </div>
+      </div>
+
       {/* Schedule Viewing Modal */}
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -922,8 +924,17 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
             </p>
 
             {scheduleSuccess ? (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-xl text-center text-xs font-semibold">
-                Viewing Request Sent! {property.owner.name} will confirm via WhatsApp shortly.
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-xl text-center text-xs font-semibold space-y-3">
+                <p>Viewing Request Sent! {property.owner.name} will confirm via WhatsApp shortly.</p>
+                <a
+                  href={generateOwnerWhatsAppUrl(property)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Chat on WhatsApp with Owner Now</span>
+                </a>
               </div>
             ) : (
               <form onSubmit={handleScheduleSubmit} className="space-y-3">
