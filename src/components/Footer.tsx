@@ -19,6 +19,7 @@ interface FooterProps {
   onOpenPostProperty?: () => void;
   onOpenMyProperties?: () => void;
   onOpenSearchConsole?: () => void;
+  onOpenHelpSupport?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
@@ -29,6 +30,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenPostProperty,
   onOpenMyProperties,
   onOpenSearchConsole,
+  onOpenHelpSupport,
 }) => {
   return (
     <footer className="bg-[#0A0F1D] text-slate-400 border-t border-slate-800/80 pt-16 pb-24 md:pb-16 text-xs sm:text-sm">
@@ -60,8 +62,16 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
-                <button onClick={onOpenContact} className="hover:text-white transition-colors cursor-pointer">
-                  Contact Support
+                <button 
+                  onClick={onOpenHelpSupport || onOpenContact} 
+                  className="hover:text-white text-[#C28E52] font-semibold transition-colors cursor-pointer"
+                >
+                  Help &amp; Support Center
+                </button>
+              </li>
+              <li>
+                <button onClick={onOpenHelpSupport || onOpenContact} className="hover:text-white transition-colors cursor-pointer">
+                  Report an Issue
                 </button>
               </li>
               <li>

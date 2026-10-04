@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Property, UserProfile } from '../types';
-import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
+import { generateOwnerWhatsAppUrl, sharePropertyListing, copyListingLinkToClipboard } from '../utils/whatsapp';
+import { isContactUnlocked, persistUnlockedContact } from '../utils/unlockedContacts';
 import { 
   X, 
   MapPin, 
@@ -9,6 +10,7 @@ import {
   MessageSquare, 
   Calendar, 
   Share2, 
+  Bookmark,
   Heart, 
   Check, 
   Sparkles, 
@@ -22,7 +24,11 @@ import {
   Zap, 
   Clock, 
   Users, 
-  Lock
+  Lock,
+  Unlock,
+  Copy,
+  Info,
+  ExternalLink
 } from 'lucide-react';
 
 interface PropertyDetailsModalProps {
@@ -45,18 +51,57 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
   onOpenAuth,
 }) => {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-  const [revealedPhone, setRevealedPhone] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState<boolean>(() => isContactUnlocked(property.id));
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('Tomorrow, 4:00 PM');
   const [scheduleSuccess, setScheduleSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [bookmarkAnimating, setBookmarkAnimating] = useState(false);
+  const [bookmarkToast, setBookmarkToast] = useState<string | null>(null);
 
-  const handleShare = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+  useEffect(() => {
+    setRevealedPhone(isContactUnlocked(property.id));
+  }, [property.id]);
+
+  const handleBookmarkToggle = () => {
+    setBookmarkAnimating(true);
+    const willBeSaved = !isSaved;
+    onToggleSave(property.id);
+    setBookmarkToast(willBeSaved ? 'Property saved to Bookmarks!' : 'Removed from Bookmarks');
+    setTimeout(() => setBookmarkAnimating(false), 500);
+    setTimeout(() => setBookmarkToast(null), 2500);
+  };
+
+  const handleShare = async () => {
+    try {
+      const res = await sharePropertyListing(property);
+      if (res.method === 'webshare') {
+        if (!res.cancelled) {
+          setShareToast('Shared via device! ✨');
+          setTimeout(() => setShareToast(null), 2500);
+        }
+      } else {
+        setCopiedLink(true);
+        setShareToast('Listing link copied to clipboard! 📋');
+        setTimeout(() => {
+          setCopiedLink(false);
+          setShareToast(null);
+        }, 3000);
+      }
+    } catch {
+      await handleCopyDirectLink();
     }
+  };
+
+  const handleCopyDirectLink = async () => {
+    const success = await copyListingLinkToClipboard(property);
+    setCopiedLink(true);
+    setShareToast(success ? 'Direct link copied to clipboard! 📋' : 'Link ready to share!');
+    setTimeout(() => {
+      setCopiedLink(false);
+      setShareToast(null);
+    }, 2800);
   };
 
   const handleRevealPhone = () => {
@@ -65,7 +110,15 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
       return;
     }
     setRevealedPhone(true);
+    persistUnlockedContact(property.id);
+    onContactOwner(property);
   };
+
+  // Determine whether coordinates are approximate centroid or verified exact point
+  const isApproximateCoordinate = !property.coordinates || 
+    (property.coordinates.lat === 19.076 && property.coordinates.lng === 72.8777 && !property.location.toLowerCase().includes('cst')) ||
+    (property.coordinates.lat === 12.9716 && property.coordinates.lng === 77.5946 && !property.location.toLowerCase().includes('mg road')) ||
+    (property.coordinates.lat === 28.6139 && property.coordinates.lng === 77.2090 && !property.location.toLowerCase().includes('connaught'));
 
   const handleScheduleVisit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,15 +159,16 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
 
             <button
               type="button"
-              onClick={() => onToggleSave(property.id)}
-              className={`p-2 rounded-full border border-slate-200 dark:border-slate-800 transition-colors ${
+              onClick={handleBookmarkToggle}
+              className={`p-2 rounded-full border transition-all duration-200 cursor-pointer relative group ${
                 isSaved
-                  ? 'bg-rose-50 text-rose-500 border-rose-200 dark:bg-rose-950/40 dark:border-rose-900'
-                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-              }`}
-              title="Save property"
+                  ? 'bg-[#C28E52]/15 text-[#C28E52] border-[#C28E52]/40 dark:bg-[#C28E52]/25 shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+              } ${bookmarkAnimating ? 'scale-125 ring-4 ring-[#C28E52]/30' : 'hover:scale-105 active:scale-95'}`}
+              title={isSaved ? "Bookmarked (Click to remove)" : "Bookmark Property"}
+              aria-label={isSaved ? "Remove bookmark" : "Bookmark this property"}
             >
-              <Heart className={`w-4 h-4 ${isSaved ? 'fill-current text-rose-500' : ''}`} />
+              <Bookmark className={`w-4 h-4 transition-transform ${isSaved ? 'fill-current text-[#C28E52]' : 'group-hover:scale-110'}`} />
             </button>
 
             <button
@@ -363,6 +417,46 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
                 </div>
               </div>
 
+              {/* Spatial Map Pin & Coordinates Transparency */}
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold font-serif text-slate-900 dark:text-white flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-[#C28E52]" />
+                    <span>Micro-Market Spatial Pin</span>
+                  </h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    isApproximateCoordinate 
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300' 
+                      : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    {isApproximateCoordinate ? 'Locality Centroid' : 'Exact GPS Pin'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-[#FAF8F5] dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                    <span>Coordinates: {property.coordinates?.lat?.toFixed(4) || '19.0760'}° N, {property.coordinates?.lng?.toFixed(4) || '72.8777'}° E</span>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.title}, ${property.location}, ${property.city}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#C28E52] hover:underline font-bold flex items-center gap-1"
+                    >
+                      <span>Google Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-[#C28E52] shrink-0 mt-0.5" />
+                    <span>
+                      {isApproximateCoordinate 
+                        ? 'Pin marks locality center. Exact tower wing & gated access pin are sent via WhatsApp upon direct visit confirmation.'
+                        : 'Verified GPS location with direct navigation support.'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* Right Column: Direct Landlord Contact Card (5 cols) */}
@@ -402,21 +496,32 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
                 {/* Primary Contact Buttons */}
                 <div className="space-y-2.5">
                   {revealedPhone ? (
-                    <a
-                      href={`tel:${property.owner.phone}`}
-                      className="w-full py-3 px-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-                    >
-                      <Phone className="w-4 h-4" />
-                      <span>Call {property.owner.phone}</span>
-                    </a>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] px-1 font-bold text-emerald-600">
+                        <span className="flex items-center gap-1">
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Unlocked Direct Contact</span>
+                        </span>
+                        <span className="bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded text-[10px]">
+                          0% Brokerage
+                        </span>
+                      </div>
+                      <a
+                        href={`tel:${property.owner.phone}`}
+                        className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
+                      >
+                        <Phone className="w-4 h-4 text-emerald-200" />
+                        <span>Call {property.owner.phone}</span>
+                      </a>
+                    </div>
                   ) : (
                     <button
                       type="button"
                       onClick={handleRevealPhone}
-                      className="w-full py-3 px-4 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                      className="w-full py-3 px-4 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer group"
                     >
-                      <Phone className="w-4 h-4" />
-                      <span>Call Owner Directly (+91 98200 •••••)</span>
+                      <Lock className="w-4 h-4 text-[#C28E52] group-hover:text-white transition-colors" />
+                      <span>Reveal Owner Contact (+91 98200 •••••)</span>
                     </button>
                   )}
 
@@ -439,6 +544,35 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
                     <Calendar className="w-4 h-4 text-[#C28E52]" />
                     <span>Schedule In-Person Viewing</span>
                   </button>
+
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyDirectLink}
+                      className="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-emerald-600 font-bold">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-[#C28E52]" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Quota & Safety Notes */}
@@ -560,6 +694,22 @@ export const PropertyDetailsModal: React.FC<PropertyDetailsModalProps> = ({
               </form>
             )}
           </div>
+        </div>
+      )}
+
+      {(bookmarkToast || shareToast) && (
+        <div className="fixed top-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 border border-[#C28E52]/40">
+          {bookmarkToast ? (
+            <>
+              <Bookmark className={`w-4 h-4 text-[#C28E52] ${isSaved ? 'fill-current' : ''}`} />
+              <span>{bookmarkToast}</span>
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{shareToast}</span>
+            </>
+          )}
         </div>
       )}
 

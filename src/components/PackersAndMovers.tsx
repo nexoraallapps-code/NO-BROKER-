@@ -15,9 +15,14 @@ import {
 
 interface PackersAndMoversProps {
   currentCity: string;
+  onOpenHelpSupport?: (report?: {
+    type?: 'Report Property' | 'Report Broker' | 'Report Packers & Movers' | 'Payment Problem';
+    item?: string;
+    reason?: string;
+  }) => void;
 }
 
-export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity }) => {
+export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity, onOpenHelpSupport }) => {
   const [fromCity, setFromCity] = useState(currentCity || 'Mumbai');
   const [toCity, setToCity] = useState('Pune');
   const [movingDate, setMovingDate] = useState('2026-10-15');
@@ -209,6 +214,23 @@ export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity 
                   </p>
                 </div>
               </div>
+
+              {onOpenHelpSupport && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2">
+                  <span className="text-slate-500">Service dispute or payment problem?</span>
+                  <button
+                    type="button"
+                    onClick={() => onOpenHelpSupport({
+                      type: 'Report Packers & Movers',
+                      item: `Packers & Movers (${fromCity} to ${toCity})`,
+                      reason: 'Bad Packers Service'
+                    })}
+                    className="font-bold text-[#C28E52] hover:underline cursor-pointer"
+                  >
+                    Report Packers &amp; Movers &gt;
+                  </button>
+                </div>
+              )}
 
             </div>
 

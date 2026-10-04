@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Property, UserProfile } from '../types';
-import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
+import { generateOwnerWhatsAppUrl, sharePropertyListing, copyListingLinkToClipboard } from '../utils/whatsapp';
+import { isContactUnlocked, persistUnlockedContact } from '../utils/unlockedContacts';
 import { 
   Heart, 
+  Bookmark,
   ArrowLeft, 
   Share2, 
   MapPin, 
@@ -34,7 +36,10 @@ import {
   Compass,
   CheckCircle2,
   Building,
-  Info
+  Info,
+  AlertCircle,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 interface PropertyDetailsScreenProps {
@@ -47,6 +52,7 @@ interface PropertyDetailsScreenProps {
   onOpenAuth: () => void;
   user: UserProfile;
   allProperties?: Property[];
+  onOpenHelpSupport?: () => void;
 }
 
 export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
@@ -59,23 +65,65 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
   onOpenAuth,
   user,
   allProperties = [],
+  onOpenHelpSupport,
 }) => {
-  const [revealedPhone, setRevealedPhone] = useState(false);
+  // Sync unlocked contact state with persistent storage
+  const [revealedPhone, setRevealedPhone] = useState<boolean>(() => isContactUnlocked(property.id));
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [bookmarkAnimating, setBookmarkAnimating] = useState(false);
+  const [bookmarkToast, setBookmarkToast] = useState<string | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [selectedRoomPlan, setSelectedRoomPlan] = useState<'living' | 'master' | 'terrace' | 'kitchen'>('living');
   const [tourMode, setTourMode] = useState<'photos' | '3d'>('photos');
 
-  const handleShare = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
+  // Keep revealed state in sync if property changes
+  useEffect(() => {
+    setRevealedPhone(isContactUnlocked(property.id));
+  }, [property.id]);
+
+  const handleShare = async () => {
+    try {
+      const res = await sharePropertyListing(property);
+      if (res.method === 'webshare') {
+        if (!res.cancelled) {
+          setShareToast('Shared via device! ✨');
+          setTimeout(() => setShareToast(null), 2500);
+        }
+      } else {
+        setCopiedLink(true);
+        setShareToast('Listing link copied to clipboard! 📋');
+        setTimeout(() => {
+          setCopiedLink(false);
+          setShareToast(null);
+        }, 3000);
+      }
+    } catch {
+      await handleCopyDirectLink();
     }
+  };
+
+  const handleCopyDirectLink = async () => {
+    const success = await copyListingLinkToClipboard(property);
+    setCopiedLink(true);
+    setShareToast(success ? 'Direct link copied to clipboard! 📋' : 'Link ready to share!');
+    setTimeout(() => {
+      setCopiedLink(false);
+      setShareToast(null);
+    }, 2800);
+  };
+
+  const handleBookmarkToggle = () => {
+    setBookmarkAnimating(true);
+    const willBeSaved = !isSaved;
+    onToggleSave(property.id);
+    setBookmarkToast(willBeSaved ? 'Property saved to Bookmarks!' : 'Removed from Bookmarks');
+    setTimeout(() => setBookmarkAnimating(false), 500);
+    setTimeout(() => setBookmarkToast(null), 2500);
   };
 
   const handleRevealPhone = () => {
@@ -84,7 +132,15 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
       return;
     }
     setRevealedPhone(true);
+    persistUnlockedContact(property.id);
+    onContactOwner(property);
   };
+
+  // Determine whether coordinates are approximate centroid or verified exact point
+  const isApproximateCoordinate = !property.coordinates || 
+    (property.coordinates.lat === 19.076 && property.coordinates.lng === 72.8777 && !property.location.toLowerCase().includes('cst')) ||
+    (property.coordinates.lat === 12.9716 && property.coordinates.lng === 77.5946 && !property.location.toLowerCase().includes('mg road')) ||
+    (property.coordinates.lat === 28.6139 && property.coordinates.lng === 77.2090 && !property.location.toLowerCase().includes('connaught'));
 
   const handleScheduleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,14 +222,28 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Bookmark Icon Button with immediate visual feedback */}
             <button
-              onClick={() => onToggleSave(property.id)}
-              className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                isSaved ? 'text-rose-500 bg-rose-50 dark:bg-rose-950/40' : 'text-slate-600 dark:text-slate-300 hover:text-[#C28E52] hover:bg-slate-200/50 dark:hover:bg-slate-800'
-              }`}
-              title={isSaved ? 'Shortlisted' : 'Save to Shortlist'}
+              type="button"
+              onClick={handleBookmarkToggle}
+              className={`p-2.5 rounded-full transition-all duration-200 cursor-pointer relative group ${
+                isSaved 
+                  ? 'text-[#C28E52] bg-[#C28E52]/15 dark:bg-[#C28E52]/25 border border-[#C28E52]/40 shadow-sm' 
+                  : 'text-slate-600 dark:text-slate-300 hover:text-[#C28E52] hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-transparent'
+              } ${bookmarkAnimating ? 'scale-125 ring-4 ring-[#C28E52]/40' : 'hover:scale-105 active:scale-95'}`}
+              title={isSaved ? 'Bookmarked (Click to remove)' : 'Bookmark Property'}
+              aria-label={isSaved ? 'Remove bookmark' : 'Bookmark this property'}
             >
-              <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+              <Bookmark 
+                className={`w-5 h-5 transition-transform duration-200 ${
+                  isSaved 
+                    ? 'fill-current text-[#C28E52]' 
+                    : 'group-hover:scale-110 text-slate-600 dark:text-slate-300 group-hover:text-[#C28E52]'
+                }`} 
+              />
+              {isSaved && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#C28E52] ring-2 ring-[#FAF8F5] dark:ring-[#0A0F1D] animate-pulse" />
+              )}
             </button>
 
             <button
@@ -228,11 +298,15 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
             <div className="flex items-center gap-4 text-xs font-semibold">
               <button
-                onClick={() => onToggleSave(property.id)}
-                className="flex items-center gap-1 text-[#0F172A] dark:text-white hover:text-[#C28E52] cursor-pointer"
+                type="button"
+                onClick={handleBookmarkToggle}
+                className={`flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isSaved ? 'text-[#C28E52] font-bold' : 'text-[#0F172A] dark:text-white hover:text-[#C28E52]'
+                }`}
+                title={isSaved ? 'Remove bookmark' : 'Bookmark property'}
               >
-                <Heart className={`w-4 h-4 ${isSaved ? 'text-rose-500 fill-current' : ''}`} />
-                <span>{isSaved ? 'Shortlisted' : 'Shortlist'}</span>
+                <Bookmark className={`w-4 h-4 ${isSaved ? 'text-[#C28E52] fill-current scale-110' : ''}`} />
+                <span>{isSaved ? 'Bookmarked' : 'Bookmark'}</span>
               </button>
               <button
                 onClick={handleShare}
@@ -680,6 +754,77 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                 </div>
               </div>
 
+              {/* 6B. Spatial Map Pin & Coordinates Transparency */}
+              <div className="bg-white dark:bg-[#0F172A] p-6 sm:p-7 rounded-2xl shadow-[0_4px_20px_rgba(15,23,42,0.03)] border border-slate-200/80 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#C28E52]" />
+                    <h2 className="text-xl font-bold font-serif text-[#0F172A] dark:text-white">
+                      Spatial Map Pin & Coordinates
+                    </h2>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 ${
+                    isApproximateCoordinate 
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/40' 
+                      : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40'
+                  }`}>
+                    {isApproximateCoordinate ? 'Locality Centroid Pin' : 'Verified Exact Coordinates'}
+                  </span>
+                </div>
+
+                {/* Map View Canvas Simulation */}
+                <div className="relative rounded-xl overflow-hidden h-44 bg-slate-900 border border-slate-800 flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-[radial-gradient(#C28E52_1px,transparent_1px)] [background-size:20px_20px] opacity-25" />
+                  
+                  {/* Pin Graphic */}
+                  <div className="relative z-10 flex flex-col items-center animate-bounce">
+                    <div className="px-3 py-1 bg-black/80 backdrop-blur-md rounded-lg text-white font-bold text-xs border border-[#C28E52]/60 shadow-lg mb-1 flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-[#C28E52] animate-ping" />
+                      <span>{property.location}</span>
+                    </div>
+                    <div className="w-7 h-7 rounded-full bg-[#C28E52] text-white flex items-center justify-center shadow-xl ring-4 ring-[#C28E52]/30">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] text-slate-300 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                    <div className="font-mono">
+                      GPS: {property.coordinates?.lat?.toFixed(4) || '19.0760'}° N, {property.coordinates?.lng?.toFixed(4) || '72.8777'}° E
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${property.title}, ${property.location}, ${property.city}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#C28E52] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Open in Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Transparency Notice to User */}
+                <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 border ${
+                  isApproximateCoordinate
+                    ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-amber-900 dark:text-amber-300'
+                    : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-300'
+                }`}>
+                  <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#C28E52]" />
+                  <div className="space-y-0.5">
+                    <div className="font-bold">
+                      {isApproximateCoordinate 
+                        ? `Approximate Locality Centroid (${property.subLocality || property.location})`
+                        : `Exact Verified Landmark Coordinates`}
+                    </div>
+                    <div className="text-[11px] opacity-90 leading-relaxed">
+                      {isApproximateCoordinate 
+                        ? 'For security and resident privacy, exact building wing, gate number, and tower pin are provided privately during direct landlord appointment confirmation.'
+                        : 'Accurate GIS coordinates recorded with direct entrance access points.'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* 7. Zero-Brokerage Savings Calculator Breakdown */}
               <div className="bg-gradient-to-br from-emerald-950/20 via-transparent to-amber-950/20 bg-white dark:bg-[#0F172A] p-6 sm:p-7 rounded-2xl shadow-[0_4px_20px_rgba(15,23,42,0.03)] border border-emerald-500/30 space-y-4">
                 <div className="flex items-center justify-between">
@@ -753,13 +898,35 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
                 {/* Owner Direct Action Triggers */}
                 <div className="space-y-2.5 pt-1">
-                  <a
-                    href={`tel:${property.owner.phone}`}
-                    className="w-full py-3.5 px-4 bg-[#0F172A] hover:bg-[#C28E52] text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                  >
-                    <Phone className="w-4 h-4 text-[#C28E52]" />
-                    <span>Call Owner ({property.owner.phone})</span>
-                  </a>
+                  {revealedPhone ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] px-1 font-bold text-emerald-600">
+                        <span className="flex items-center gap-1">
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Unlocked Direct Landlord Contact</span>
+                        </span>
+                        <span className="bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded text-[10px]">
+                          0% Brokerage
+                        </span>
+                      </div>
+                      <a
+                        href={`tel:${property.owner.phone}`}
+                        className="w-full py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                      >
+                        <Phone className="w-4 h-4 text-emerald-200" />
+                        <span>Call Owner ({property.owner.phone})</span>
+                      </a>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRevealPhone}
+                      className="w-full py-3.5 px-4 bg-[#0F172A] hover:bg-[#C28E52] text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer group"
+                    >
+                      <Lock className="w-4 h-4 text-[#C28E52] group-hover:text-white transition-colors" />
+                      <span>Reveal Owner Contact (+91 98200 •••••)</span>
+                    </button>
+                  )}
 
                   <a
                     href={generateOwnerWhatsAppUrl(property)}
@@ -780,6 +947,37 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                     <Calendar className="w-4 h-4 text-[#C28E52]" />
                     <span>Schedule In-Person Viewing</span>
                   </button>
+
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="py-2.5 px-3 bg-[#FAF8F5] hover:bg-slate-200/80 dark:bg-slate-900/60 dark:hover:bg-slate-800 text-[#0F172A] dark:text-white rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 border border-slate-200/80 dark:border-slate-700/80 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                      title="Share property listing (Web Share or WhatsApp)"
+                    >
+                      <Share2 className="w-4 h-4 text-[#C28E52]" />
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyDirectLink}
+                      className="py-2.5 px-3 bg-[#FAF8F5] hover:bg-slate-200/80 dark:bg-slate-900/60 dark:hover:bg-slate-800 text-[#0F172A] dark:text-white rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 border border-slate-200/80 dark:border-slate-700/80 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+                      title="Copy listing URL to clipboard"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-500" />
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-[#C28E52]" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Rent Breakdown */}
@@ -815,6 +1013,20 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                   <span className="text-emerald-600 font-semibold">100% Direct Certified</span>
                 </div>
               </div>
+
+              {onOpenHelpSupport && (
+                <button
+                  type="button"
+                  onClick={onOpenHelpSupport}
+                  className="w-full py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-[#FAF8F5] dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Report this Property / Fake Broker</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">Report &gt;</span>
+                </button>
+              )}
 
             </div>
 
@@ -886,6 +1098,16 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-[#0F172A] dark:text-white text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 border border-slate-200/80 dark:border-slate-700 active:scale-95 transition-all cursor-pointer"
+            title="Share property listing (Web Share or WhatsApp)"
+            aria-label="Share property"
+          >
+            {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4 text-[#C28E52]" />}
+            <span className="text-xs hidden sm:inline">{copiedLink ? 'Copied' : 'Share'}</span>
+          </button>
           <a
             href={`tel:${property.owner.phone}`}
             className="px-3.5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors"
@@ -1086,6 +1308,23 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                 </button>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Floating Feedback Toasts (Bookmark & Share) */}
+      {(bookmarkToast || shareToast) && (
+        <div className="fixed top-20 right-4 sm:right-8 z-50 px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 border border-[#C28E52]/40">
+          {bookmarkToast ? (
+            <>
+              <Bookmark className={`w-4 h-4 text-[#C28E52] ${isSaved ? 'fill-current' : ''}`} />
+              <span>{bookmarkToast}</span>
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{shareToast}</span>
+            </>
           )}
         </div>
       )}

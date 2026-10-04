@@ -14,15 +14,21 @@ import { PropertyDetailsScreen } from './components/PropertyDetailsScreen';
 import { SearchFilterConsoleScreen } from './components/SearchFilterConsoleScreen';
 import { PostPropertyBanner } from './components/PostPropertyBanner';
 import { PostPropertyModal } from './components/PostPropertyModal';
+import { EditPropertyModal } from './components/EditPropertyModal';
 import { AuthModal } from './components/AuthModal';
 import { SavedPropertiesScreen } from './components/SavedPropertiesScreen';
 import { PostPropertyScreen } from './components/PostPropertyScreen';
 import { MyPropertiesScreen } from './components/MyPropertiesScreen';
 import { UserProfileModal } from './components/UserProfileModal';
+import { ProfileScreen } from './components/ProfileScreen';
+import { EditProfileModal } from './components/EditProfileModal';
 import { InteractiveMapModal } from './components/InteractiveMapModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
 import { InfoModal } from './components/InfoModals';
+import { HelpSupportScreen, HelpSupportInitialReport } from './components/HelpSupportScreen';
+import { HelpSupportSection } from './components/HelpSupportSection';
+import { PackersAndMovers } from './components/PackersAndMovers';
 
 export type AppView = 
   | 'explore' 
@@ -30,7 +36,9 @@ export type AppView =
   | 'saved-properties' 
   | 'property-details' 
   | 'post-property' 
-  | 'my-properties';
+  | 'my-properties'
+  | 'help-support'
+  | 'profile';
 
 export default function App() {
   const [properties, setProperties] = useState<Property[]>(() => {
@@ -88,11 +96,16 @@ export default function App() {
       savedPropertyIds: ['NB-PLH-942', 'NB-CTR-810', 'NB-WRL-928'],
       contactsRemaining: 5,
       postedPropertyIds: [],
+      preferredCity: 'Mumbai',
+      preferredLocality: '',
+      isPhoneVerified: false,
+      isEmailVerified: false,
     };
   });
 
   // Modal controls
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -133,6 +146,8 @@ export default function App() {
         setCurrentView('my-properties');
       } else if (hash.includes('post') || hash.includes('publish') || hash.includes('listing')) {
         setCurrentView('post-property');
+      } else if (hash.includes('help') || hash.includes('support') || hash.includes('report')) {
+        setCurrentView('help-support');
       } else if (hash === '#explore') {
         setCurrentView('explore');
       }
@@ -193,6 +208,14 @@ export default function App() {
     showToast('Your property is live on NO BROKER! 🎉');
   };
 
+  const handleUpdateProperty = (updatedProp: Property) => {
+    setProperties((prev) => prev.map((p) => (p.id === updatedProp.id ? updatedProp : p)));
+    if (selectedProperty && selectedProperty.id === updatedProp.id) {
+      setSelectedProperty(updatedProp);
+    }
+    showToast(`Property "${updatedProp.title}" updated successfully! ✨`);
+  };
+
   // 100% Free, Direct Owner Contact - No Quotas or Paywalls
   const handleContactOwner = (property: Property) => {
     setSelectedProperty(property);
@@ -210,6 +233,21 @@ export default function App() {
   const handleAuthSuccess = (authenticatedUser: UserProfile) => {
     setUser(authenticatedUser);
     showToast(`Welcome back, ${authenticatedUser.name}!`);
+  };
+
+  const handleSaveUserProfile = (updatedUser: Partial<UserProfile>) => {
+    setUser((prev) => {
+      const nextUser = { ...prev, ...updatedUser };
+      localStorage.setItem('nobroker_user', JSON.stringify(nextUser));
+      return nextUser;
+    });
+    if (updatedUser.preferredCity) {
+      setSelectedCity(updatedUser.preferredCity);
+    }
+    if (updatedUser.preferredLocality !== undefined) {
+      setSearchConsoleQuery(updatedUser.preferredLocality || '');
+    }
+    showToast('Profile and preferences updated successfully!');
   };
 
   const handleLogout = () => {
@@ -251,6 +289,30 @@ export default function App() {
       el.scrollIntoView({ behavior: 'smooth' });
     }
     showToast(`Browsing ${bhk || (type !== 'all' ? type : 'All Portfolios')}`);
+  };
+
+  const [helpSupportInitialReport, setHelpSupportInitialReport] = useState<HelpSupportInitialReport | null>(null);
+
+  const handleOpenHelpSupport = (report?: HelpSupportInitialReport) => {
+    if (report) {
+      setHelpSupportInitialReport(report);
+      setCurrentView('help-support');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      if (currentView !== 'explore') {
+        setCurrentView('explore');
+      }
+      setTimeout(() => {
+        const el = document.getElementById('help-support-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          setCurrentView('help-support');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 50);
+    }
+    showToast('Help & Support Center');
   };
 
   const savedPropertiesList = properties.filter((p) => user.savedPropertyIds.includes(p.id));
@@ -389,6 +451,7 @@ export default function App() {
             setCurrentView('post-property');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onEditProperty={(prop) => setEditingProperty(prop)}
           onNavigateHome={() => {
             setCurrentView('explore');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -397,6 +460,14 @@ export default function App() {
             setCurrentView('saved-properties');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onOpenProfile={() => {
+            setCurrentView('profile');
+            setMobileTab('profile');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSaveUser={handleSaveUserProfile}
+          onLogout={handleLogout}
+          onOpenHelpSupport={handleOpenHelpSupport}
         />
       ) : currentView === 'post-property' ? (
         /* VIEW 2: Dedicated Post Property Full Wizard Screen */
@@ -450,6 +521,14 @@ export default function App() {
           onOpenAuth={() => setIsAuthModalOpen(true)}
           user={user}
           allProperties={properties}
+          onOpenHelpSupport={() => {
+            handleOpenHelpSupport({
+              type: 'Report Property',
+              item: `${selectedProperty.title} (${selectedProperty.id})`,
+              reason: 'Broker / Brokerage Demand',
+              returnTo: 'property'
+            });
+          }}
         />
       ) : currentView === 'saved-properties' ? (
         /* VIEW 5: Dedicated Saved Properties Screen */
@@ -470,8 +549,84 @@ export default function App() {
           }}
           user={user}
         />
+      ) : currentView === 'help-support' ? (
+        /* VIEW 6: Screen 15 - Report, Support & Help Center */
+        <HelpSupportScreen
+          onBack={() => {
+            if (helpSupportInitialReport?.returnTo === 'property') {
+              setCurrentView('property-details');
+            } else {
+              setCurrentView('explore');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          user={user}
+          initialReport={helpSupportInitialReport}
+          onReturnToItem={() => {
+            if (helpSupportInitialReport?.returnTo === 'property') {
+              setCurrentView('property-details');
+            } else {
+              setCurrentView('explore');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateHome={() => {
+            setCurrentView('explore');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenPostProperty={() => {
+            setCurrentView('post-property');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateSaved={() => {
+            setCurrentView('saved-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenPublicMovers={() => {
+            setCurrentView('explore');
+            setTimeout(() => {
+              const el = document.getElementById('packers-movers');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          }}
+        />
+      ) : currentView === 'profile' ? (
+        /* VIEW 7: Profile & Settings Screen */
+        <ProfileScreen
+          user={user}
+          savedProperties={savedPropertiesList}
+          postedProperties={postedPropertiesList}
+          onBack={() => {
+            setCurrentView('explore');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSaveUser={handleSaveUserProfile}
+          onSelectProperty={handleViewPropertyDetails}
+          onOpenPostProperty={() => {
+            setCurrentView('post-property');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateSaved={() => {
+            setCurrentView('saved-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigateMyProperties={() => {
+            setCurrentView('my-properties');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenHelpSupport={() => handleOpenHelpSupport()}
+          onLogout={handleLogout}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onCityPreferenceChanged={(newCity, newLocality) => {
+            setSelectedCity(newCity);
+            if (newLocality !== undefined) {
+              setSearchConsoleQuery(newLocality || '');
+            }
+            showToast(`Search context updated to ${newCity}${newLocality ? ' • ' + newLocality : ''}`);
+          }}
+        />
       ) : (
-        /* VIEW 6: Primary Core Real Estate Exploration (BUY, RENT, COMMERCIAL) */
+        /* VIEW 8: Primary Core Real Estate Exploration (BUY, RENT, COMMERCIAL) */
         <>
           {/* Top Header */}
           <Header
@@ -504,7 +659,11 @@ export default function App() {
               setCurrentView('my-properties');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onOpenProfile={() => setIsProfileModalOpen(true)}
+            onOpenProfile={() => {
+              setCurrentView('profile');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenHelpSupport={handleOpenHelpSupport}
             user={user}
             onLogout={handleLogout}
             isDarkMode={isDarkMode}
@@ -541,11 +700,22 @@ export default function App() {
               onOpenMap={() => setIsMapModalOpen(true)}
             />
 
-            {/* 4. Post Property FREE Call-to-Action Banner */}
+            {/* 4. Packers & Movers Integration Section */}
+            <div id="packers-movers">
+              <PackersAndMovers
+                currentCity={selectedCity}
+                onOpenHelpSupport={(report) => handleOpenHelpSupport(report)}
+              />
+            </div>
+
+            {/* 5. Post Property FREE Call-to-Action Banner */}
             <PostPropertyBanner onOpenPostModal={() => {
               setCurrentView('post-property');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }} />
+
+            {/* 6. Responsive Help & Support Section */}
+            <HelpSupportSection id="help-support-section" />
           </main>
 
           {/* Footer */}
@@ -569,6 +739,7 @@ export default function App() {
               setCurrentView('search-console');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onOpenHelpSupport={handleOpenHelpSupport}
           />
         </>
       )}
@@ -588,11 +759,8 @@ export default function App() {
             setCurrentView('my-properties');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else if (tab === 'profile') {
-            if (user.isAuthenticated) {
-              setIsProfileModalOpen(true);
-            } else {
-              setIsAuthModalOpen(true);
-            }
+            setCurrentView('profile');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         }}
         onOpenPostProperty={() => {
@@ -608,6 +776,18 @@ export default function App() {
           isOpen={isPostModalOpen}
           onClose={() => setIsPostModalOpen(false)}
           onAddProperty={handleAddProperty}
+          userPhone={user.phone}
+          userName={user.name}
+        />
+      )}
+
+      {/* Direct Owner Edit Property Modal */}
+      {editingProperty && (
+        <EditPropertyModal
+          isOpen={!!editingProperty}
+          onClose={() => setEditingProperty(null)}
+          property={editingProperty}
+          onUpdateProperty={handleUpdateProperty}
           userPhone={user.phone}
           userName={user.name}
         />
@@ -653,8 +833,20 @@ export default function App() {
             setCurrentView('my-properties');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onOpenHelpSupport={() => {
+            setIsProfileModalOpen(false);
+            handleOpenHelpSupport();
+          }}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onLogout={handleLogout}
+          onSaveUser={handleSaveUserProfile}
+          onCityPreferenceChanged={(newCity, newLocality) => {
+            setSelectedCity(newCity);
+            if (newLocality !== undefined) {
+              setSearchConsoleQuery(newLocality || '');
+            }
+            showToast(`Search context updated to ${newCity}${newLocality ? ' • ' + newLocality : ''}`);
+          }}
         />
       )}
 

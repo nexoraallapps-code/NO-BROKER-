@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Property, PropertyPurpose, PropertyType, FurnishingState } from '../types';
-import { CITIES } from '../data/mockProperties';
+import { CITIES, LOCALITIES_BY_CITY } from '../data/mockProperties';
 import heroVilla from '../assets/images/hero_villa_twilight_1790309610252.jpg';
 import interiorLiving from '../assets/images/property_interior_living_1790309634351.jpg';
 import propertyBandra from '../assets/images/property_penthouse_bandra_1790309622284.jpg';
@@ -23,13 +23,20 @@ import {
   Plus,
   Image as ImageIcon,
   Layers,
-  FileText
+  FileText,
+  AlertCircle,
+  Star,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 
-interface PostPropertyModalProps {
+export interface PostPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddProperty: (newProp: Property) => void;
+  onAddProperty?: (newProp: Property) => void;
+  onUpdateProperty?: (updatedProp: Property) => void;
+  propertyToEdit?: Property | null;
   userPhone?: string;
   userName?: string;
 }
@@ -62,13 +69,20 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
   isOpen,
   onClose,
   onAddProperty,
+  onUpdateProperty,
+  propertyToEdit,
   userPhone = '',
   userName = '',
 }) => {
+  const isEditMode = !!propertyToEdit;
+
   // 4-step wizard
   const [step, setStep] = useState<number>(1);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [createdProperty, setCreatedProperty] = useState<Property | null>(null);
+
+  // Validation Errors state
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Step 1: Type & Intent
   const [purpose, setPurpose] = useState<PropertyPurpose>('rent');
@@ -84,11 +98,15 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
   const [furnishing, setFurnishing] = useState<FurnishingState>('Fully Furnished');
   const [floor, setFloor] = useState<string>('Middle Floor');
 
-  // Step 3: Pricing & Description & Amenities
-  const [price, setPrice] = useState<string>('85,000');
-  const [deposit, setDeposit] = useState<string>('2 Months');
+  // Step 3: Pricing & Description & Amenities (Strict Numeric Strings)
+  const [rawPrice, setRawPrice] = useState<string>('85000');
+  const [depositOption, setDepositOption] = useState<'months' | 'custom'>('months');
+  const [depositMonths, setDepositMonths] = useState<number>(2);
+  const [rawDeposit, setRawDeposit] = useState<string>('170000');
   const [possession, setPossession] = useState<string>('Immediate Move-in');
-  const [description, setDescription] = useState<string>('Spacious, sunlit residence with premium fittings, peaceful locality, and immediate direct owner handover. Zero brokerage.');
+  const [description, setDescription] = useState<string>(
+    'Spacious, sunlit residence with premium fittings, peaceful locality, and immediate direct owner handover. Zero brokerage.'
+  );
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([
     '24/7 Security & CCTV',
     'Reserved Covered Parking',
@@ -105,113 +123,369 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
   const [ownerPhone, setOwnerPhone] = useState<string>(userPhone || '+91 98201 99234');
   const [verifiedTitle, setVerifiedTitle] = useState<boolean>(true);
 
+  // Pre-populate fields when in edit mode
+  useEffect(() => {
+    if (propertyToEdit) {
+      setPurpose(propertyToEdit.purpose || 'rent');
+      setPropertyType(propertyToEdit.propertyType || 'flat');
+      setCity(propertyToEdit.city || 'Mumbai');
+      setLocality(propertyToEdit.subLocality || propertyToEdit.location || '');
+      setSocietyName(propertyToEdit.location.split(',')[0] || '');
+      setBhk(propertyToEdit.bhk || '2 BHK');
+      
+      const digitsArea = propertyToEdit.carpetArea.replace(/[^0-9]/g, '');
+      setCarpetArea(digitsArea || '1250');
+      setBathrooms(propertyToEdit.bathrooms || 2);
+      setFurnishing(propertyToEdit.furnishing || 'Fully Furnished');
+      setFloor(propertyToEdit.floor || 'Middle Floor');
+
+      // Financials (strictly clean digits)
+      const cleanPrice = String(propertyToEdit.price || 85000).replace(/[^0-9]/g, '');
+      setRawPrice(cleanPrice);
+
+      const cleanDeposit = (propertyToEdit.deposit || '2 Months').replace(/[^0-9]/g, '');
+      if (cleanDeposit && Number(cleanDeposit) > 10) {
+        setDepositOption('custom');
+        setRawDeposit(cleanDeposit);
+      } else {
+        setDepositOption('months');
+        setDepositMonths(2);
+        setRawDeposit(String(Number(cleanPrice) * 2));
+      }
+
+      setPossession(propertyToEdit.status || 'Immediate Move-in');
+      setDescription(propertyToEdit.specifications?.curatorNote || '');
+      
+      if (propertyToEdit.amenities && propertyToEdit.amenities.length > 0) {
+        setSelectedAmenities([...propertyToEdit.amenities]);
+      }
+
+      if (propertyToEdit.images && propertyToEdit.images.length > 0) {
+        setUploadedImages([...propertyToEdit.images]);
+      }
+
+      if (propertyToEdit.owner) {
+        setOwnerName(propertyToEdit.owner.name || userName);
+        setOwnerPhone(propertyToEdit.owner.phone || userPhone);
+        setVerifiedTitle(propertyToEdit.owner.verifiedTitle ?? true);
+      }
+    }
+  }, [propertyToEdit, userName, userPhone]);
+
   if (!isOpen) return null;
 
+  // Numeric Calculations (Guaranteed Error-Proof, No string concatenation or NaN)
+  const numericPrice = Number(rawPrice) || 0;
+  const numericDeposit = depositOption === 'months' 
+    ? numericPrice * depositMonths 
+    : (Number(rawDeposit) || 0);
+
+  const brokerageSavedAmount = purpose === 'rent'
+    ? numericPrice * 2
+    : Math.round(numericPrice * 0.02);
+
+  const totalMoveInCost = purpose === 'rent'
+    ? numericPrice + numericDeposit
+    : numericPrice;
+
+  // Validation function for each step
+  const validateStep = (currentStep: number): boolean => {
+    const stepErrors: { [key: string]: string } = {};
+
+    if (currentStep === 1) {
+      if (!purpose) {
+        stepErrors.purpose = 'Please select a listing intent (Rent or Buy).';
+      }
+      if (!propertyType) {
+        stepErrors.propertyType = 'Please select a property category.';
+      }
+    }
+
+    if (currentStep === 2) {
+      if (!locality.trim()) {
+        stepErrors.locality = 'Locality / Sub-Area is required. Please specify a neighborhood.';
+      }
+      const numArea = Number(carpetArea.replace(/[^0-9]/g, '')) || 0;
+      if (numArea <= 0) {
+        stepErrors.carpetArea = 'Please enter a valid carpet area (e.g. 850 sq.ft).';
+      }
+      if (bathrooms < 1) {
+        stepErrors.bathrooms = 'Please specify at least 1 bathroom.';
+      }
+    }
+
+    if (currentStep === 3) {
+      if (numericPrice <= 0) {
+        stepErrors.price = purpose === 'rent' 
+          ? 'Monthly rent cannot be zero. Please specify a valid rent amount.'
+          : 'Total price cannot be zero. Please specify a valid selling price.';
+      } else if (purpose === 'rent' && numericPrice < 1000) {
+        stepErrors.price = 'Monthly rent must be at least ₹1,000.';
+      } else if (purpose === 'buy' && numericPrice < 50000) {
+        stepErrors.price = 'Total selling price must be at least ₹50,000.';
+      }
+
+      if (depositOption === 'custom' && numericDeposit < 0) {
+        stepErrors.deposit = 'Security deposit must be a valid positive amount.';
+      }
+
+      if (selectedAmenities.length === 0) {
+        stepErrors.amenities = 'Please select at least one amenity or feature.';
+      }
+    }
+
+    if (currentStep === 4) {
+      if (uploadedImages.length === 0) {
+        stepErrors.images = 'Please attach at least 1 property photograph.';
+      }
+      if (!ownerName.trim()) {
+        stepErrors.ownerName = 'Owner name is required.';
+      }
+      const digitsPhone = ownerPhone.replace(/[^0-9]/g, '');
+      if (digitsPhone.length < 10) {
+        stepErrors.ownerPhone = 'Please provide a valid 10-digit mobile number.';
+      }
+      if (!verifiedTitle) {
+        stepErrors.verifiedTitle = 'Please check the box confirming you are the direct owner.';
+      }
+    }
+
+    setErrors(stepErrors);
+    return Object.keys(stepErrors).length === 0;
+  };
+
+  // Step advancement handler
+  const handleNextStep = () => {
+    if (validateStep(step)) {
+      setStep((prev) => Math.min(prev + 1, 4));
+    }
+  };
+
+  // Direct Step Header Jump Handler (Guards against skipping unfilled steps)
+  const handleStepJump = (targetStep: number) => {
+    if (targetStep < step) {
+      setStep(targetStep);
+      return;
+    }
+    // Verify all intermediate steps
+    for (let s = 1; s < targetStep; s++) {
+      if (!validateStep(s)) {
+        setStep(s);
+        return;
+      }
+    }
+    setStep(targetStep);
+  };
+
+  // Handlers for Price / Deposit with string-character rejection
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanDigits = e.target.value.replace(/[^0-9]/g, '');
+    setRawPrice(cleanDigits);
+    if (errors.price) {
+      setErrors((prev) => ({ ...prev, price: '' }));
+    }
+  };
+
+  const handleDepositChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanDigits = e.target.value.replace(/[^0-9]/g, '');
+    setRawDeposit(cleanDigits);
+    if (errors.deposit) {
+      setErrors((prev) => ({ ...prev, deposit: '' }));
+    }
+  };
+
+  const handleCarpetAreaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanDigits = e.target.value.replace(/[^0-9]/g, '');
+    setCarpetArea(cleanDigits);
+    if (errors.carpetArea) {
+      setErrors((prev) => ({ ...prev, carpetArea: '' }));
+    }
+  };
+
+  // Amenities Real-time Toggle
   const toggleAmenity = (amenity: string) => {
     if (selectedAmenities.includes(amenity)) {
       setSelectedAmenities(selectedAmenities.filter((a) => a !== amenity));
     } else {
       setSelectedAmenities([...selectedAmenities, amenity]);
     }
+    if (errors.amenities) {
+      setErrors((prev) => ({ ...prev, amenities: '' }));
+    }
   };
 
+  // Image Management: Reordering & Deletion
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Read selected files into Data URLs
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
           setUploadedImages((prev) => [...prev, event.target!.result as string]);
+          if (errors.images) {
+            setErrors((prev) => ({ ...prev, images: '' }));
+          }
         }
       };
       reader.readAsDataURL(file);
     });
+    e.target.value = '';
   };
 
   const handleAddSampleImage = (img: string) => {
     if (!uploadedImages.includes(img)) {
       setUploadedImages((prev) => [...prev, img]);
+      if (errors.images) {
+        setErrors((prev) => ({ ...prev, images: '' }));
+      }
     }
   };
 
   const handleRemoveImage = (index: number) => {
-    setUploadedImages(uploadedImages.filter((_, idx) => idx !== index));
+    setUploadedImages((prev) => prev.filter((_, idx) => idx !== index));
   };
 
+  const handleMoveImage = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= uploadedImages.length) return;
+    setUploadedImages((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(fromIdx, 1);
+      copy.splice(toIdx, 0, moved);
+      return copy;
+    });
+  };
+
+  const handleSetCoverPhoto = (idx: number) => {
+    if (idx === 0) return;
+    setUploadedImages((prev) => {
+      const copy = [...prev];
+      const [cover] = copy.splice(idx, 1);
+      return [cover, ...copy];
+    });
+  };
+
+  // Submission Handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const numericPrice = parseInt(price.replace(/[^0-9]/g, '')) || 85000;
-    const formattedPrice =
-      purpose === 'rent'
-        ? `₹${numericPrice.toLocaleString('en-IN')} / month`
-        : `₹${(numericPrice / 10000000).toFixed(2)} Cr`;
+    if (!validateStep(4)) {
+      return;
+    }
 
-    const savedBrokerage =
-      purpose === 'rent'
-        ? `Save ₹${(numericPrice * 2).toLocaleString('en-IN')} Brokerage`
-        : `Save ₹${Math.round(numericPrice * 0.02).toLocaleString('en-IN')} Brokerage`;
+    const formattedPrice = purpose === 'rent'
+      ? `₹${numericPrice.toLocaleString('en-IN')} / month`
+      : `₹${(numericPrice / 10000000).toFixed(2)} Cr`;
+
+    const savedBrokerage = purpose === 'rent'
+      ? `Save ₹${brokerageSavedAmount.toLocaleString('en-IN')} Brokerage`
+      : `Save ₹${brokerageSavedAmount.toLocaleString('en-IN')} Brokerage`;
 
     const finalImages = uploadedImages.length > 0 ? uploadedImages : [interiorLiving, heroVilla];
+    const finalDeposit = depositOption === 'months' 
+      ? `${depositMonths} Months (₹${numericDeposit.toLocaleString('en-IN')})` 
+      : `₹${numericDeposit.toLocaleString('en-IN')}`;
 
-    const newProperty: Property = {
-      id: `NB-DIR-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: `${bhk} in ${societyName || locality || 'Prime Residence'}`,
-      hindiTitle: `${bhk} डायरेक्ट ओनर - ${locality || 'प्राइम लोकेशन'}, ${city}`,
-      purpose,
-      propertyType,
-      price: numericPrice,
-      priceFormatted: formattedPrice,
-      deposit: deposit || '2 Months',
-      brokerageSaved: savedBrokerage,
-      location: `${societyName ? societyName + ', ' : ''}${locality || 'Prime Locality'}, ${city}`,
-      city,
-      subLocality: locality || 'Prime Enclave',
-      bhk,
-      carpetArea: carpetArea.includes('sq.ft') ? carpetArea : `${carpetArea} sq.ft`,
-      bathrooms,
-      parking: '1 Reserved Covered',
-      floor,
-      status: possession,
-      furnishing,
-      facing: 'North-East Vastu Compliant',
-      images: finalImages,
-      owner: {
-        name: ownerName,
-        phone: ownerPhone,
-        verifiedTitle,
-        directOwner: true,
-        responseTime: '~5 mins',
-        rating: 5.0,
-      },
-      amenities: selectedAmenities.length > 0 ? selectedAmenities : ['24/7 Security & CCTV', 'Covered Parking'],
-      specifications: {
-        curatorNote: description,
-        tenantPreference: 'Open to All Genuine Families & Professionals',
-        ageOfProperty: 'New Construction',
-        balconies: '1-2 Balconies',
-        ceilingHeight: '11 ft Clear',
-        maintenanceIncluded: true
-      },
-      coordinates: {
-        lat: city === 'Mumbai' ? 19.0760 : city === 'Bangalore' ? 12.9716 : 28.6139,
-        lng: city === 'Mumbai' ? 72.8777 : city === 'Bangalore' ? 77.5946 : 77.2090
-      },
-      distanceFromUser: 'Just Listed (Direct Owner)',
-      featured: true
-    };
+    if (isEditMode && propertyToEdit) {
+      const updatedProperty: Property = {
+        ...propertyToEdit,
+        title: `${bhk} in ${societyName || locality || 'Prime Residence'}`,
+        hindiTitle: `${bhk} डायरेक्ट ओनर - ${locality || 'प्राइम लोकेशन'}, ${city}`,
+        purpose,
+        propertyType,
+        price: numericPrice,
+        priceFormatted: formattedPrice,
+        deposit: finalDeposit,
+        brokerageSaved: savedBrokerage,
+        location: `${societyName ? societyName + ', ' : ''}${locality || 'Prime Locality'}, ${city}`,
+        city,
+        subLocality: locality || 'Prime Enclave',
+        bhk,
+        carpetArea: carpetArea.includes('sq.ft') ? carpetArea : `${carpetArea} sq.ft`,
+        bathrooms,
+        floor,
+        status: possession,
+        furnishing,
+        images: finalImages,
+        amenities: [...selectedAmenities], // Real-time synchronized amenities array
+        owner: {
+          ...propertyToEdit.owner,
+          name: ownerName,
+          phone: ownerPhone,
+          verifiedTitle,
+        },
+        specifications: {
+          ...propertyToEdit.specifications,
+          curatorNote: description,
+        }
+      };
 
-    onAddProperty(newProperty);
-    setCreatedProperty(newProperty);
-    setIsSuccess(true);
+      if (onUpdateProperty) {
+        onUpdateProperty(updatedProperty);
+      }
+      setCreatedProperty(updatedProperty);
+      setIsSuccess(true);
+    } else {
+      const newProperty: Property = {
+        id: `NB-DIR-${Math.floor(1000 + Math.random() * 9000)}`,
+        title: `${bhk} in ${societyName || locality || 'Prime Residence'}`,
+        hindiTitle: `${bhk} डायरेक्ट ओनर - ${locality || 'प्राइम लोकेशन'}, ${city}`,
+        purpose,
+        propertyType,
+        price: numericPrice,
+        priceFormatted: formattedPrice,
+        deposit: finalDeposit,
+        brokerageSaved: savedBrokerage,
+        location: `${societyName ? societyName + ', ' : ''}${locality || 'Prime Locality'}, ${city}`,
+        city,
+        subLocality: locality || 'Prime Enclave',
+        bhk,
+        carpetArea: carpetArea.includes('sq.ft') ? carpetArea : `${carpetArea} sq.ft`,
+        bathrooms,
+        parking: '1 Reserved Covered',
+        floor,
+        status: possession,
+        furnishing,
+        facing: 'North-East Vastu Compliant',
+        images: finalImages,
+        owner: {
+          name: ownerName,
+          phone: ownerPhone,
+          verifiedTitle,
+          directOwner: true,
+          responseTime: '~5 mins',
+          rating: 5.0,
+        },
+        amenities: [...selectedAmenities],
+        specifications: {
+          curatorNote: description,
+          tenantPreference: 'Open to All Genuine Families & Professionals',
+          ageOfProperty: 'New Construction',
+          balconies: '1-2 Balconies',
+          ceilingHeight: '11 ft Clear',
+          maintenanceIncluded: true
+        },
+        coordinates: {
+          lat: city === 'Mumbai' ? 19.0760 : city === 'Bangalore' ? 12.9716 : 28.6139,
+          lng: city === 'Mumbai' ? 72.8777 : city === 'Bangalore' ? 77.5946 : 77.2090
+        },
+        distanceFromUser: 'Just Listed (Direct Owner)',
+        featured: true
+      };
+
+      if (onAddProperty) {
+        onAddProperty(newProperty);
+      }
+      setCreatedProperty(newProperty);
+      setIsSuccess(true);
+    }
   };
 
   const handleResetAndClose = () => {
     setIsSuccess(false);
     setStep(1);
+    setErrors({});
     onClose();
   };
 
@@ -220,33 +494,35 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
       <div className="relative w-full max-w-3xl bg-white dark:bg-[#0A0F1D] text-slate-900 dark:text-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 my-auto flex flex-col max-h-[92vh]">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold text-[#C28E52] uppercase tracking-wider">
-                NO BROKER Multi-Step Owner Portal
+                {isEditMode ? 'Direct Owner Listing Console' : 'NO BROKER Multi-Step Owner Portal'}
               </span>
               <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded">
-                100% FREE LISTING
+                {isEditMode ? 'EDIT MODE' : '100% FREE LISTING'}
               </span>
             </div>
             <h3 className="text-lg sm:text-xl font-bold font-serif mt-0.5">
-              Property Rent ya Sell Karein — Zero Commission
+              {isEditMode 
+                ? `Edit Listing: ${propertyToEdit?.title || 'Property'}`
+                : 'Property Rent ya Sell Karein — Zero Commission'}
             </h3>
           </div>
 
           <button
             type="button"
             onClick={handleResetAndClose}
-            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Wizard Step Progress Tracker */}
+        {/* Wizard Step Progress Tracker with Navigation Guards */}
         {!isSuccess && (
-          <div className="px-6 py-3 bg-[#FAF8F5] dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
+          <div className="px-6 py-3 bg-[#FAF8F5] dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800 shrink-0">
             <div className="flex items-center justify-between max-w-2xl mx-auto">
               {[
                 { num: 1, label: 'Type & Intent' },
@@ -254,15 +530,16 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                 { num: 3, label: 'Price & Amenities' },
                 { num: 4, label: 'Photos & Contact' }
               ].map((s) => (
-                <div 
+                <button
                   key={s.num} 
-                  className="flex items-center gap-2 cursor-pointer"
-                  onClick={() => s.num < step && setStep(s.num)}
+                  type="button"
+                  className="flex items-center gap-2 cursor-pointer focus:outline-none"
+                  onClick={() => handleStepJump(s.num)}
                 >
                   <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                       step === s.num
-                        ? 'bg-[#C28E52] text-white ring-2 ring-[#C28E52]/40'
+                        ? 'bg-[#C28E52] text-white ring-2 ring-[#C28E52]/40 scale-105'
                         : step > s.num
                         ? 'bg-emerald-600 text-white'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
@@ -273,7 +550,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                   <span className={`hidden sm:inline text-xs font-medium ${step === s.num ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-400'}`}>
                     {s.label}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -287,11 +564,11 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
             </div>
 
             <h4 className="text-2xl font-bold font-serif">
-              Mubarak Ho! Aapki Listing Live Ho Gayi Hai
+              {isEditMode ? 'Listing Updated Successfully!' : 'Mubarak Ho! Aapki Listing Live Ho Gayi Hai'}
             </h4>
 
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-              Your property <span className="font-semibold text-slate-900 dark:text-white">&ldquo;{createdProperty?.title}&rdquo;</span> is now active with <strong>{createdProperty?.images.length} photos</strong> and <strong>0% brokerage</strong>.
+              Your property <span className="font-semibold text-slate-900 dark:text-white">&ldquo;{createdProperty?.title}&rdquo;</span> is updated with <strong>{createdProperty?.images.length} photos</strong>, <strong>{createdProperty?.amenities.length} amenities</strong>, and <strong>0% brokerage</strong>.
             </p>
 
             <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl text-left text-xs space-y-2 max-w-md mx-auto border border-slate-200 dark:border-slate-800">
@@ -302,6 +579,14 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
               <div className="flex justify-between">
                 <span className="text-slate-500">Price / Rent:</span>
                 <span className="font-bold">{createdProperty?.priceFormatted}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Security Deposit:</span>
+                <span className="font-bold">{createdProperty?.deposit}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Active Amenities:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{createdProperty?.amenities.slice(0, 3).join(', ')}...</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Owner Direct Contact:</span>
@@ -317,9 +602,9 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
               <button
                 type="button"
                 onClick={handleResetAndClose}
-                className="py-3 px-8 bg-[#C28E52] hover:bg-[#AB773D] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors"
+                className="py-3 px-8 bg-[#C28E52] hover:bg-[#AB773D] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-colors cursor-pointer"
               >
-                View Live on Platform
+                {isEditMode ? 'Done & Return to Listings' : 'View Live on Platform'}
               </button>
             </div>
           </div>
@@ -331,13 +616,13 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
               <div className="space-y-5 animate-in fade-in duration-150">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Property Intent: Aap rent out karna chahte hain ya sell?
+                    Property Intent: Aap rent out karna chahte hain ya sell? <span className="text-rose-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setPurpose('rent')}
-                      className={`p-3.5 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all ${
+                      className={`p-3.5 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all cursor-pointer ${
                         purpose === 'rent'
                           ? 'border-[#C28E52] bg-amber-50/60 dark:bg-amber-950/20 text-[#C28E52] ring-1 ring-[#C28E52]'
                           : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
@@ -349,7 +634,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setPurpose('buy')}
-                      className={`p-3.5 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all ${
+                      className={`p-3.5 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all cursor-pointer ${
                         purpose === 'buy'
                           ? 'border-[#C28E52] bg-amber-50/60 dark:bg-amber-950/20 text-[#C28E52] ring-1 ring-[#C28E52]'
                           : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
@@ -363,7 +648,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Property Category
+                    Property Category <span className="text-rose-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {[
@@ -377,7 +662,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => setPropertyType(item.id as PropertyType)}
-                        className={`p-3 rounded-xl border text-left transition-all ${
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                           propertyType === item.id
                             ? 'border-[#C28E52] bg-amber-50/40 dark:bg-amber-950/20 text-[#C28E52] ring-1 ring-[#C28E52]'
                             : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
@@ -390,11 +675,18 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                   </div>
                 </div>
 
+                {errors.purpose && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{errors.purpose}</span>
+                  </div>
+                )}
+
                 <div className="pt-4 flex justify-end">
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
-                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+                    onClick={handleNextStep}
+                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md hover:bg-[#C28E52] dark:hover:bg-[#C28E52] dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <span>Next: Location & Size</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -409,12 +701,12 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Metropolis / City *
+                      Metropolis / City <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
                     >
                       {CITIES.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -424,18 +716,56 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Locality / Sub-Area *
+                      Locality / Sub-Area <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={locality}
-                      onChange={(e) => setLocality(e.target.value)}
+                      onChange={(e) => {
+                        setLocality(e.target.value);
+                        if (errors.locality) {
+                          setErrors((prev) => ({ ...prev, locality: '' }));
+                        }
+                      }}
                       placeholder="e.g. Bandra West, Worli, Indiranagar"
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-                      required
+                      className={`w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs focus:outline-none ${
+                        errors.locality 
+                          ? 'border-rose-500 ring-1 ring-rose-500' 
+                          : 'border-slate-300 dark:border-slate-700 focus:border-[#C28E52]'
+                      }`}
                     />
+                    {errors.locality && (
+                      <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{errors.locality}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {/* Popular locality chips for quick auto-fill */}
+                {LOCALITIES_BY_CITY[city] && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase">Popular in {city}:</span>
+                    {LOCALITIES_BY_CITY[city].slice(0, 4).map((loc) => (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => {
+                          setLocality(loc);
+                          if (errors.locality) setErrors((prev) => ({ ...prev, locality: '' }));
+                        }}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                          locality === loc 
+                            ? 'bg-[#C28E52] text-white border-[#C28E52] font-bold'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#C28E52]'
+                        }`}
+                      >
+                        {loc}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -446,61 +776,71 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     value={societyName}
                     onChange={(e) => setSocietyName(e.target.value)}
                     placeholder="e.g. Oberoi Sky Heights, Rustomjee Elements"
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-[#C28E52]"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Bedrooms / BHK *
+                      BHK Configuration <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={bhk}
                       onChange={(e) => setBhk(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
                     >
-                      <option value="1 RK">1 RK Studio</option>
+                      <option value="1 RK / Studio">1 RK / Studio</option>
                       <option value="1 BHK">1 BHK</option>
                       <option value="2 BHK">2 BHK</option>
                       <option value="3 BHK">3 BHK</option>
-                      <option value="4 BHK">4 BHK Sky Villa</option>
-                      <option value="5+ BHK">5+ BHK Grand Villa</option>
+                      <option value="4 BHK">4 BHK</option>
+                      <option value="5+ BHK Grand">5+ BHK Grand</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Carpet Area (sq.ft) *
+                      Carpet Area (sq.ft) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={carpetArea}
-                      onChange={(e) => setCarpetArea(e.target.value)}
-                      placeholder="e.g. 1450"
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
-                      required
+                      onChange={handleCarpetAreaChange}
+                      placeholder="e.g. 1250"
+                      className={`w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs focus:outline-none ${
+                        errors.carpetArea 
+                          ? 'border-rose-500 ring-1 ring-rose-500' 
+                          : 'border-slate-300 dark:border-slate-700 focus:border-[#C28E52]'
+                      }`}
                     />
+                    {errors.carpetArea && (
+                      <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{errors.carpetArea}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Bathrooms
+                      Bathrooms <span className="text-rose-500">*</span>
                     </label>
                     <select
                       value={bathrooms}
-                      onChange={(e) => setBathrooms(parseInt(e.target.value))}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+                      onChange={(e) => setBathrooms(Number(e.target.value))}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
                     >
                       <option value={1}>1 Bathroom</option>
                       <option value={2}>2 Bathrooms</option>
                       <option value={3}>3 Bathrooms</option>
-                      <option value={4}>4+ Bathrooms</option>
+                      <option value={4}>4 Bathrooms</option>
+                      <option value={5}>5+ Bathrooms</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                       Furnishing Status
@@ -508,7 +848,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     <select
                       value={furnishing}
                       onChange={(e) => setFurnishing(e.target.value as FurnishingState)}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-[#C28E52]"
                     >
                       <option value="Fully Furnished">Fully Furnished</option>
                       <option value="Semi-Furnished">Semi-Furnished</option>
@@ -524,7 +864,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     <select
                       value={floor}
                       onChange={(e) => setFloor(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-[#C28E52]"
                     >
                       <option value="Ground Floor">Ground Floor</option>
                       <option value="Lower Floor (1-4)">Lower Floor (1-4)</option>
@@ -539,7 +879,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Back</span>
@@ -547,8 +887,8 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
-                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+                    onClick={handleNextStep}
+                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md hover:bg-[#C28E52] dark:hover:bg-[#C28E52] dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <span>Next: Pricing & Amenities</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -557,37 +897,78 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
               </div>
             )}
 
-            {/* STEP 3: Price, Description & Amenities */}
+            {/* STEP 3: Price, Description & Amenities (Strict Numeric Inputs & Financial Summary) */}
             {step === 3 && (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Rent / Total Price Input (Digits only) */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                       {purpose === 'rent' ? 'Monthly Rent (₹) *' : 'Total Selling Price (₹) *'}
                     </label>
-                    <input
-                      type="text"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder={purpose === 'rent' ? '85,000' : '3,20,00,000'}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold"
-                      required
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">₹</span>
+                      <input
+                        type="text"
+                        value={numericPrice > 0 ? numericPrice.toLocaleString('en-IN') : ''}
+                        onChange={handlePriceChange}
+                        placeholder={purpose === 'rent' ? '85,000' : '3,20,00,000'}
+                        className={`w-full pl-7 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs font-bold focus:outline-none ${
+                          errors.price 
+                            ? 'border-rose-500 ring-1 ring-rose-500' 
+                            : 'border-slate-300 dark:border-slate-700 focus:border-[#C28E52]'
+                        }`}
+                      />
+                    </div>
+                    {errors.price && (
+                      <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{errors.price}</span>
+                      </p>
+                    )}
                   </div>
 
+                  {/* Security Deposit Configuration */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Security Deposit
-                    </label>
-                    <input
-                      type="text"
-                      value={deposit}
-                      onChange={(e) => setDeposit(e.target.value)}
-                      placeholder="e.g. 2 Months"
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        Security Deposit
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setDepositOption(depositOption === 'months' ? 'custom' : 'months')}
+                        className="text-[10px] text-[#C28E52] font-semibold hover:underline cursor-pointer"
+                      >
+                        {depositOption === 'months' ? 'Custom ₹' : 'Use Months'}
+                      </button>
+                    </div>
+
+                    {depositOption === 'months' ? (
+                      <select
+                        value={depositMonths}
+                        onChange={(e) => setDepositMonths(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
+                      >
+                        <option value={1}>1 Month Rent (₹{numericPrice.toLocaleString('en-IN')})</option>
+                        <option value={2}>2 Months Rent (₹{(numericPrice * 2).toLocaleString('en-IN')})</option>
+                        <option value={3}>3 Months Rent (₹{(numericPrice * 3).toLocaleString('en-IN')})</option>
+                        <option value={5}>5 Months Rent (₹{(numericPrice * 5).toLocaleString('en-IN')})</option>
+                      </select>
+                    ) : (
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">₹</span>
+                        <input
+                          type="text"
+                          value={numericDeposit > 0 ? numericDeposit.toLocaleString('en-IN') : ''}
+                          onChange={handleDepositChange}
+                          placeholder="e.g. 2,00,000"
+                          className="w-full pl-7 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
+                        />
+                      </div>
+                    )}
                   </div>
 
+                  {/* Possession */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                       Possession Availability
@@ -595,7 +976,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     <select
                       value={possession}
                       onChange={(e) => setPossession(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C28E52]"
                     >
                       <option value="Immediate Move-in">Immediate Move-in</option>
                       <option value="Within 15 Days">Within 15 Days</option>
@@ -605,24 +986,73 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                   </div>
                 </div>
 
+                {/* Guaranteed Financial Summary Card (Zero NaN, Zero string calculation bugs) */}
+                <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#C28E52] uppercase tracking-wider text-[10px] flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      Financial Summary & Zero-Brokerage Advantage
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
+                      100% Direct Owner
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400">Monthly Rent</div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                        ₹{numericPrice.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400">Security Deposit</div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                        ₹{numericDeposit.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400">Brokerage Saved</div>
+                      <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        ₹{brokerageSavedAmount.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                      <div className="text-[10px] text-slate-400">Total Move-In Pay</div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                        ₹{totalMoveInCost.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Property Description (Tell buyers / tenants what makes it special)
+                    Property Description
                   </label>
                   <textarea
                     rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe views, natural lighting, recent renovations, neighborhood vibe..."
-                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs leading-relaxed"
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs leading-relaxed focus:outline-none focus:border-[#C28E52]"
                   />
                 </div>
 
-                {/* Amenities multi-select checkboxes */}
+                {/* Amenities Real-Time Synchronized Selection */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Amenities & Key Features (Select all that apply)
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Amenities &amp; Features ({selectedAmenities.length} selected) <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-600 font-medium">
+                      Synchronizes real-time across cards and monograph
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {AMENITY_OPTIONS.map((amenity) => {
                       const isSelected = selectedAmenities.includes(amenity);
@@ -631,10 +1061,10 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                           key={amenity}
                           type="button"
                           onClick={() => toggleAmenity(amenity)}
-                          className={`p-2 rounded-lg border text-left text-xs transition-colors flex items-center gap-2 ${
+                          className={`p-2 rounded-lg border text-left text-xs transition-all flex items-center gap-2 cursor-pointer ${
                             isSelected
-                              ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/30 text-slate-900 dark:text-white font-medium'
-                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                              ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/40 text-slate-900 dark:text-white font-medium ring-1 ring-[#C28E52]/60'
+                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                           }`}
                         >
                           <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${isSelected ? 'bg-[#C28E52] border-[#C28E52] text-white' : 'border-slate-300 dark:border-slate-700'}`}>
@@ -645,13 +1075,20 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                       );
                     })}
                   </div>
+
+                  {errors.amenities && (
+                    <p className="text-[11px] text-rose-500 mt-2 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>{errors.amenities}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-4 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => setStep(2)}
-                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Back</span>
@@ -659,8 +1096,8 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStep(4)}
-                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
+                    onClick={handleNextStep}
+                    className="py-2.5 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md hover:bg-[#C28E52] dark:hover:bg-[#C28E52] dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <span>Next: Photos & Contact</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -669,47 +1106,114 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
               </div>
             )}
 
-            {/* STEP 4: Multiple Image Uploads & Owner Verification */}
+            {/* STEP 4: Direct Image Reordering, Deletion, and Owner Verification */}
             {step === 4 && (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Property Photos ({uploadedImages.length} attached) *
+                      Property Photos ({uploadedImages.length} attached) <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] text-emerald-600 font-medium">
-                      High quality photos get 5x more direct responses
+                    <span className="text-[10px] text-slate-500">
+                      Reorder photos: Use ◀ / ▶ or click Star to make Cover Photo
                     </span>
                   </div>
 
-                  {/* Image Grid Preview */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                    {uploadedImages.map((img, idx) => (
-                      <div key={idx} className="relative group rounded-xl overflow-hidden h-28 border border-slate-200 dark:border-slate-800 bg-slate-900">
-                        <img
-                          src={img}
-                          alt={`Uploaded ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/70 text-white hover:bg-rose-600 transition-colors"
-                          title="Remove photo"
+                  {/* Direct Image Preview & Reordering Management Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                    {uploadedImages.map((img, idx) => {
+                      const isCover = idx === 0;
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`relative group rounded-xl overflow-hidden border-2 bg-slate-900 shadow-sm transition-all ${
+                            isCover ? 'border-[#C28E52] ring-2 ring-[#C28E52]/30' : 'border-slate-200 dark:border-slate-800'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="absolute bottom-1 left-1.5 text-[9px] bg-black/60 text-white px-1.5 rounded font-mono">
-                          #{idx + 1} {idx === 0 ? '(Cover)' : ''}
-                        </span>
-                      </div>
-                    ))}
+                          <div className="h-32 w-full overflow-hidden">
+                            <img
+                              src={img}
+                              alt={`Uploaded ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+
+                          {/* Cover Photo Badge */}
+                          <div className="absolute top-2 left-2 flex items-center gap-1">
+                            {isCover ? (
+                              <span className="bg-[#C28E52] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
+                                <Star className="w-3 h-3 fill-current" />
+                                <span>#1 Cover Photo</span>
+                              </span>
+                            ) : (
+                              <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                #{idx + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer shadow-md"
+                            title="Delete photo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Reordering Action Toolbar */}
+                          <div className="p-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveImage(idx, idx - 1)}
+                                className={`p-1 rounded border transition-colors cursor-pointer ${
+                                  idx === 0 
+                                    ? 'opacity-30 border-transparent cursor-not-allowed' 
+                                    : 'border-slate-300 dark:border-slate-700 hover:border-[#C28E52] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                }`}
+                                title="Move Left / Earlier"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={idx === uploadedImages.length - 1}
+                                onClick={() => handleMoveImage(idx, idx + 1)}
+                                className={`p-1 rounded border transition-colors cursor-pointer ${
+                                  idx === uploadedImages.length - 1 
+                                    ? 'opacity-30 border-transparent cursor-not-allowed' 
+                                    : 'border-slate-300 dark:border-slate-700 hover:border-[#C28E52] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                }`}
+                                title="Move Right / Later"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {!isCover && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetCoverPhoto(idx)}
+                                className="text-[11px] font-bold text-[#C28E52] hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Star className="w-3 h-3" />
+                                <span>Set as Cover</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
 
                     {/* Upload File Box */}
-                    <label className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#C28E52] rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-colors h-28 bg-slate-50 dark:bg-slate-800/40">
+                    <label className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#C28E52] rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-colors h-40 bg-slate-50 dark:bg-slate-800/40">
                       <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Upload Photos</span>
-                      <span className="text-[10px] text-slate-400">JPG, PNG (Multi)</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Upload More Photos</span>
+                      <span className="text-[10px] text-slate-400">JPG, PNG (Multi-select)</span>
                       <input
                         type="file"
                         multiple
@@ -720,10 +1224,17 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                     </label>
                   </div>
 
-                  {/* Add sample architectural photos shortcut */}
+                  {errors.images && (
+                    <p className="text-[11px] text-rose-500 mb-3 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>{errors.images}</span>
+                    </p>
+                  )}
+
+                  {/* Add sample architectural visuals shortcut */}
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                     <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
-                      Need instant professional photos? Add verified demo architectural visuals:
+                      Need high-resolution professional photos? Add verified demo architectural visuals:
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {SAMPLE_GALLERY.map((sampleImg, sIdx) => (
@@ -731,7 +1242,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                           key={sIdx}
                           type="button"
                           onClick={() => handleAddSampleImage(sampleImg)}
-                          className="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:border-[#C28E52] flex items-center gap-1"
+                          className="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:border-[#C28E52] flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="w-3 h-3 text-[#C28E52]" />
                           <span>Sample Photo #{sIdx + 1}</span>
@@ -750,30 +1261,54 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Your Full Name *
+                        Your Full Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={ownerName}
-                        onChange={(e) => setOwnerName(e.target.value)}
+                        onChange={(e) => {
+                          setOwnerName(e.target.value);
+                          if (errors.ownerName) setErrors((prev) => ({ ...prev, ownerName: '' }));
+                        }}
                         placeholder="Owner full name"
-                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
-                        required
+                        className={`w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs font-semibold focus:outline-none ${
+                          errors.ownerName 
+                            ? 'border-rose-500 ring-1 ring-rose-500' 
+                            : 'border-slate-300 dark:border-slate-700 focus:border-[#C28E52]'
+                        }`}
                       />
+                      {errors.ownerName && (
+                        <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>{errors.ownerName}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Direct Mobile Number *
+                        Direct Mobile Number <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="tel"
                         value={ownerPhone}
-                        onChange={(e) => setOwnerPhone(e.target.value)}
-                        placeholder="+91 98..."
-                        className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold"
-                        required
+                        onChange={(e) => {
+                          setOwnerPhone(e.target.value);
+                          if (errors.ownerPhone) setErrors((prev) => ({ ...prev, ownerPhone: '' }));
+                        }}
+                        placeholder="+91 98201 99234"
+                        className={`w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs font-semibold focus:outline-none ${
+                          errors.ownerPhone 
+                            ? 'border-rose-500 ring-1 ring-rose-500' 
+                            : 'border-slate-300 dark:border-slate-700 focus:border-[#C28E52]'
+                        }`}
                       />
+                      {errors.ownerPhone && (
+                        <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>{errors.ownerPhone}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -782,20 +1317,29 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
                       type="checkbox"
                       id="verifiedCheckFinal"
                       checked={verifiedTitle}
-                      onChange={(e) => setVerifiedTitle(e.target.checked)}
-                      className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                      onChange={(e) => {
+                        setVerifiedTitle(e.target.checked);
+                        if (errors.verifiedTitle) setErrors((prev) => ({ ...prev, verifiedTitle: '' }));
+                      }}
+                      className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                     />
-                    <label htmlFor="verifiedCheckFinal" className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                    <label htmlFor="verifiedCheckFinal" className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed cursor-pointer select-none">
                       I confirm I am the direct owner / authorized landlord of this property. No middlemen, brokers, or agents are permitted on this listing.
                     </label>
                   </div>
+                  {errors.verifiedTitle && (
+                    <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>{errors.verifiedTitle}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-3 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => setStep(3)}
-                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"
+                    className="py-2.5 px-4 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Back</span>
@@ -803,10 +1347,10 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
 
                   <button
                     type="submit"
-                    className="py-3 px-8 bg-[#C28E52] hover:bg-[#AB773D] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg cursor-pointer"
+                    className="py-3 px-8 bg-[#C28E52] hover:bg-[#AB773D] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-lg cursor-pointer transition-all active:scale-98"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Publish Listing (100% Free)</span>
+                    <span>{isEditMode ? 'Save & Update Listing' : 'Publish Listing (100% Free)'}</span>
                   </button>
                 </div>
               </div>

@@ -27,8 +27,75 @@ import {
   Map as MapIcon, 
   ChevronDown, 
   CheckCircle2,
-  Navigation
+  Navigation,
+  Trash2,
+  History
 } from 'lucide-react';
+
+export interface RecentSearchItem {
+  id: string;
+  queryText: string;
+  city: string;
+  purpose: PropertyPurpose;
+  tags: string[];
+  bhks?: string[];
+  types?: string[];
+  radius?: string;
+  timestamp: number;
+}
+
+const STORAGE_KEY_RECENT_SEARCHES = 'nexora_recent_searches';
+const LEGACY_STORAGE_KEY = 'direct_owner_recent_searches';
+
+const getDefaultRecentSearches = (targetCity: string): RecentSearchItem[] => {
+  const locs = LOCALITIES_BY_CITY[targetCity] || ['Central Enclave', 'Heritage Quarter', 'Sea Face', 'Tech Hub'];
+  return [
+    {
+      id: `seed-1-${targetCity}`,
+      queryText: `3 BHK in ${locs[0] || 'Central Enclave'}`,
+      city: targetCity,
+      purpose: 'rent',
+      tags: [locs[0] || 'Central Enclave'],
+      bhks: ['3 BHK'],
+      timestamp: Date.now() - 1000 * 60 * 15,
+    },
+    {
+      id: `seed-2-${targetCity}`,
+      queryText: `Sea Facing 4 BHK in ${locs[1] || 'Heritage Quarter'}`,
+      city: targetCity,
+      purpose: 'rent',
+      tags: [locs[1] || 'Heritage Quarter'],
+      bhks: ['4 BHK'],
+      timestamp: Date.now() - 1000 * 60 * 45,
+    },
+    {
+      id: `seed-3-${targetCity}`,
+      queryText: `Penthouse in ${locs[2] || 'Sea Face'}`,
+      city: targetCity,
+      purpose: 'buy',
+      tags: [locs[2] || 'Sea Face'],
+      types: ['Penthouse'],
+      timestamp: Date.now() - 1000 * 60 * 120,
+    },
+    {
+      id: `seed-4-${targetCity}`,
+      queryText: `2 BHK in ${locs[3] || 'Tech Hub'}`,
+      city: targetCity,
+      purpose: 'rent',
+      tags: [locs[3] || 'Tech Hub'],
+      bhks: ['2 BHK'],
+      timestamp: Date.now() - 1000 * 60 * 240,
+    },
+    {
+      id: `seed-5-${targetCity}`,
+      queryText: `Commercial Lease in ${locs[0] || 'Central Hub'}`,
+      city: targetCity,
+      purpose: 'commercial',
+      tags: [locs[0] || 'Central Hub'],
+      timestamp: Date.now() - 1000 * 60 * 480,
+    },
+  ];
+};
 
 interface SearchFilterConsoleScreenProps {
   onBack: () => void;
@@ -102,12 +169,159 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
     '2+ Reserved Covered Parking'
   ]);
 
+  // Recent Searches state (Persisted in localStorage, strictly last 5 queries)
+  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_RECENT_SEARCHES) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any, index: number) => {
+            if (typeof item === 'string') {
+              return {
+                id: `migrated-${index}-${Date.now()}`,
+                queryText: item,
+                city: initialCity,
+                purpose: 'rent' as PropertyPurpose,
+                tags: [item],
+                timestamp: Date.now() - index * 60000,
+              };
+            }
+            return {
+              id: item.id || `search-${index}-${Date.now()}`,
+              queryText: item.queryText || item.label || 'Saved Search',
+              city: item.city || initialCity,
+              purpose: item.purpose || 'rent',
+              tags: Array.isArray(item.tags) ? item.tags : [],
+              bhks: Array.isArray(item.bhks) ? item.bhks : [],
+              types: Array.isArray(item.types) ? item.types : [],
+              radius: item.radius,
+              timestamp: item.timestamp || Date.now(),
+            };
+          }).slice(0, 5);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to parse recent searches from localStorage:', err);
+    }
+    return getDefaultRecentSearches(initialCity);
+  });
+
+  const [activeRecentSearchId, setActiveRecentSearchId] = useState<string | null>(null);
+
+  // Helper to persist strictly the last 5 queries to localStorage
+  const persistRecentSearches = (searches: RecentSearchItem[]) => {
+    const capped = searches.slice(0, 5);
+    setRecentSearches(capped);
+    try {
+      localStorage.setItem(STORAGE_KEY_RECENT_SEARCHES, JSON.stringify(capped));
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(capped));
+    } catch (err) {
+      console.warn('Failed to persist recent searches:', err);
+    }
+  };
+
+  // Helper to record a new search query (deduped, unshifted, capped at 5)
+  const recordSearchQuery = (customLabel?: string, overrideCity?: string, overrideTags?: string[]) => {
+    const targetCity = overrideCity || city;
+    const targetTags = overrideTags || tags;
+
+    let label = customLabel?.trim();
+    if (!label) {
+      if (inputLocality.trim()) {
+        label = inputLocality.trim();
+      } else if (targetTags.length > 0) {
+        const bhkPrefix = selectedBHKs.length > 0 ? `${selectedBHKs.join(', ')} in ` : '';
+        label = `${bhkPrefix}${targetTags.slice(0, 2).join(', ')}${targetTags.length > 2 ? ` +${targetTags.length - 2}` : ''}`;
+      } else {
+        label = `${selectedBHKs.length > 0 ? selectedBHKs.join(', ') : 'Properties'} in ${targetCity}`;
+      }
+    }
+
+    if (!label) return;
+
+    const newItem: RecentSearchItem = {
+      id: `query-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      queryText: label,
+      city: targetCity,
+      purpose,
+      tags: targetTags.length > 0 ? targetTags : [label],
+      bhks: selectedBHKs.length > 0 ? selectedBHKs : undefined,
+      types: selectedTypes.length > 0 ? selectedTypes : undefined,
+      radius: selectedRadius,
+      timestamp: Date.now(),
+    };
+
+    // Filter out duplicate or matching queryText
+    const remaining = recentSearches.filter(
+      (item) => item.queryText.toLowerCase().trim() !== label!.toLowerCase().trim()
+    );
+
+    const updated = [newItem, ...remaining].slice(0, 5);
+    persistRecentSearches(updated);
+  };
+
+  // Reuse a recent search chip
+  const handleReuseRecentSearch = (item: RecentSearchItem) => {
+    setActiveRecentSearchId(item.id);
+    setTimeout(() => setActiveRecentSearchId(null), 1500);
+
+    if (item.city) setCity(item.city);
+    if (item.purpose) setPurpose(item.purpose);
+    if (item.tags && item.tags.length > 0) {
+      setTags(item.tags);
+    } else if (item.queryText) {
+      setTags([item.queryText]);
+    }
+    if (item.bhks && item.bhks.length > 0) {
+      setSelectedBHKs(item.bhks);
+    }
+    if (item.types && item.types.length > 0) {
+      setSelectedTypes(item.types);
+    }
+    if (item.radius) {
+      setSelectedRadius(item.radius as any);
+    }
+
+    // Move to top of recent searches (MRU)
+    const remaining = recentSearches.filter((s) => s.id !== item.id);
+    const updated = [{ ...item, timestamp: Date.now() }, ...remaining].slice(0, 5);
+    persistRecentSearches(updated);
+
+    // Scroll to results
+    const el = document.getElementById('search-matches-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Remove a single query
+  const handleRemoveRecentSearch = (e: React.MouseEvent, idToRemove: string) => {
+    e.stopPropagation();
+    const updated = recentSearches.filter((s) => s.id !== idToRemove);
+    persistRecentSearches(updated);
+  };
+
+  // Clear all recent searches
+  const handleClearAllRecentSearches = () => {
+    persistRecentSearches([]);
+  };
+
+  // Restore default seed searches
+  const handleRestoreDefaultRecentSearches = () => {
+    const defaults = getDefaultRecentSearches(city);
+    persistRecentSearches(defaults);
+  };
+
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && inputLocality.trim()) {
       e.preventDefault();
-      if (!tags.includes(inputLocality.trim())) {
-        setTags([...tags, inputLocality.trim()]);
+      const newTag = inputLocality.trim();
+      const updatedTags = tags.includes(newTag) ? tags : [...tags, newTag];
+      if (!tags.includes(newTag)) {
+        setTags(updatedTags);
       }
+      recordSearchQuery(newTag, city, updatedTags);
       setInputLocality('');
     }
   };
@@ -384,6 +598,7 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                 <button
                   type="button"
                   onClick={() => {
+                    recordSearchQuery();
                     const el = document.getElementById('search-matches-section');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
@@ -440,39 +655,112 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
 
           </div>
 
-          {/* Quick Recent Searches Strip */}
-          <div className="flex flex-wrap items-center gap-2 pt-4 text-xs">
-            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Recent Searches in Mumbai:</span>
-            <button
-              onClick={() => {
-                setTags(['Bandra West']);
-                setSelectedBHKs(['3 BHK']);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#C28E52] transition-colors cursor-pointer text-xs"
-            >
-              <Clock className="w-3 h-3 text-[#C28E52]" />
-              <span>3 BHK in Bandra West (&lt; 10 KM)</span>
-            </button>
-            <button
-              onClick={() => {
-                setTags(['Worli Sea Face']);
-                setSelectedBHKs(['4 BHK']);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#C28E52] transition-colors cursor-pointer text-xs"
-            >
-              <Clock className="w-3 h-3 text-[#C28E52]" />
-              <span>Sea Facing 4 BHK Worli</span>
-            </button>
-            <button
-              onClick={() => {
-                setTags(['Juhu Coastal']);
-                setSelectedTypes(['Penthouse']);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#C28E52] transition-colors cursor-pointer text-xs"
-            >
-              <Clock className="w-3 h-3 text-[#C28E52]" />
-              <span>Penthouse in Juhu Coastal</span>
-            </button>
+          {/* Recent Searches Section (Persisted in localStorage, Last 5 Queries) */}
+          <div className="pt-4 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-500/10 text-[#C28E52] flex items-center justify-center">
+                  <History className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
+                  Recent Searches:
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono font-semibold">
+                  {recentSearches.length}/5 Saved
+                </span>
+              </div>
+
+              {recentSearches.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearAllRecentSearches}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 flex items-center gap-1 transition-colors cursor-pointer self-start sm:self-auto"
+                  title="Clear all recent searches from localStorage"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Clear History</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultRecentSearches}
+                  className="text-[11px] font-semibold text-[#C28E52] hover:text-[#AB773D] flex items-center gap-1 transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restore Suggestions</span>
+                </button>
+              )}
+            </div>
+
+            {recentSearches.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {recentSearches.map((item) => {
+                  const isCurrentlyActive = activeRecentSearchId === item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleReuseRecentSearch(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleReuseRecentSearch(item);
+                        }
+                      }}
+                      className={`group inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer shadow-xs ${
+                        isCurrentlyActive
+                          ? 'bg-[#C28E52] text-white border-[#C28E52] ring-2 ring-[#C28E52]/40 scale-102 font-bold'
+                          : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#C28E52] hover:border-[#C28E52] border-transparent'
+                      }`}
+                      title={`Click to re-apply query: ${item.queryText} (${item.city})`}
+                    >
+                      <Clock className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-45 ${
+                        isCurrentlyActive ? 'text-white' : 'text-[#C28E52]'
+                      }`} />
+                      
+                      <span className="truncate max-w-[240px]">{item.queryText}</span>
+
+                      {/* City/Scope Pill if outside current city */}
+                      {item.city && (
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${
+                          isCurrentlyActive
+                            ? 'bg-black/20 text-white'
+                            : 'bg-white/80 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {item.city}
+                        </span>
+                      )}
+
+                      {/* Remove single chip button */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveRecentSearch(e, item.id)}
+                        className={`p-0.5 rounded-full transition-colors cursor-pointer ${
+                          isCurrentlyActive
+                            ? 'hover:bg-black/20 text-white'
+                            : 'text-slate-400 hover:text-rose-500 hover:bg-slate-300 dark:hover:bg-slate-700'
+                        }`}
+                        title="Remove this search query"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-2.5 px-3.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                <span>No recent searches stored. Queries you search will be saved here (up to 5) for instant reuse.</span>
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultRecentSearches}
+                  className="font-bold text-[#C28E52] hover:underline ml-2 text-[11px] cursor-pointer"
+                >
+                  Load Popular Queries
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

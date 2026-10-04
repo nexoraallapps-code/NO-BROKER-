@@ -76,6 +76,10 @@ export interface UserProfile {
   savedPropertyIds: string[];
   contactsRemaining: number;
   postedPropertyIds: string[];
+  preferredCity?: string;
+  preferredLocality?: string;
+  isPhoneVerified?: boolean;
+  isEmailVerified?: boolean;
 }
 
 export interface MovingQuote {

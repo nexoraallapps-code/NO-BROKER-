@@ -32,6 +32,7 @@ interface HeaderProps {
   onOpenSearchConsole?: () => void;
   onOpenMyProperties?: () => void;
   onOpenProfile: () => void;
+  onOpenHelpSupport?: () => void;
   user: UserProfile;
   onLogout: () => void;
   isDarkMode: boolean;
@@ -50,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearchConsole,
   onOpenMyProperties,
   onOpenProfile,
+  onOpenHelpSupport,
   user,
   onLogout,
   isDarkMode,
@@ -165,6 +167,16 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Search className="w-3.5 h-3.5 text-[#C28E52]" />
                 Search Console
+              </button>
+            )}
+
+            {onOpenHelpSupport && (
+              <button
+                onClick={onOpenHelpSupport}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs lg:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-[#C28E52] transition-colors cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-[#C28E52]" />
+                Help &amp; Support
               </button>
             )}
           </nav>
@@ -292,6 +304,22 @@ export const Header: React.FC<HeaderProps> = ({
                         0% Brok.
                       </span>
                     </button>
+
+                    {onOpenHelpSupport && (
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          onOpenHelpSupport();
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer border-t border-slate-100 dark:border-slate-800 pt-1.5"
+                      >
+                        <span className="font-semibold text-[#0F172A] dark:text-white flex items-center gap-1.5">
+                          <HelpCircle className="w-3.5 h-3.5 text-[#C28E52]" />
+                          Help &amp; Support
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-bold">Direct Help</span>
+                      </button>
+                    )}
 
                     <div className="border-t border-slate-100 dark:border-slate-800 mt-1 pt-1">
                       <button
@@ -443,6 +471,19 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <Building className="w-4 h-4" />
                   View Architectural Monograph (Details Screen)
+                </button>
+              )}
+
+              {onOpenHelpSupport && (
+                <button
+                  onClick={() => {
+                    onOpenHelpSupport();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="col-span-2 flex items-center justify-center gap-1.5 p-2.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white font-semibold"
+                >
+                  <HelpCircle className="w-4 h-4 text-[#C28E52]" />
+                  Help &amp; Support Center (Report &amp; FAQs)
                 </button>
               )}
             </div>

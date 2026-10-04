@@ -14,8 +14,13 @@ import {
   Award,
   CheckCircle2,
   Trash2,
-  Eye
+  Eye,
+  HelpCircle,
+  Edit3,
+  Camera,
+  MapPin
 } from 'lucide-react';
+import { EditProfileModal } from './EditProfileModal';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -29,6 +34,9 @@ interface UserProfileModalProps {
   onLogout: () => void;
   onOpenAuth: () => void;
   onNavigateMyProperties?: () => void;
+  onOpenHelpSupport?: () => void;
+  onSaveUser?: (updatedUser: Partial<UserProfile>) => void;
+  onCityPreferenceChanged?: (newCity: string, newLocality?: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -43,8 +51,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onLogout,
   onOpenAuth,
   onNavigateMyProperties,
+  onOpenHelpSupport,
+  onSaveUser,
+  onCityPreferenceChanged,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'posted'>('saved');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -55,17 +67,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Modal Top Header */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
           <div className="flex items-center gap-4">
-            {user.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-14 h-14 rounded-full object-cover border-2 border-[#C28E52]"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-[#C28E52] text-white flex items-center justify-center font-bold text-xl">
-                {user.name ? user.name.charAt(0) : 'U'}
-              </div>
-            )}
+            <div className="relative group shrink-0">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-[#C28E52]"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-[#C28E52] text-white flex items-center justify-center font-bold text-xl">
+                  {user.name ? user.name.charAt(0) : 'U'}
+                </div>
+              )}
+              {onSaveUser && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="absolute -bottom-1 -right-1 p-1 rounded-full bg-[#0F172A] text-white hover:bg-[#C28E52] border border-white dark:border-slate-800 transition-colors cursor-pointer"
+                  title="Upload / Change Avatar"
+                >
+                  <Camera className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-bold font-serif">{user.name || 'User Profile'}</h3>
@@ -82,13 +107,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onSaveUser && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-[#C28E52]" />
+                <span className="hidden sm:inline">Edit Profile</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab switcher */}
@@ -297,6 +335,73 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           {activeTab === 'profile' && (
             <div className="space-y-4">
+              {/* Profile Details & Verification Card */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    Member Details &amp; Verification
+                  </span>
+                  {onSaveUser && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="text-xs font-bold text-[#C28E52] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit Info</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Mobile (Direct Landlord Contacts)</span>
+                    <div className="font-semibold flex items-center gap-1.5 mt-0.5">
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{user.phone || 'Not provided'}</span>
+                      {user.phone && (user.isPhoneVerified !== false ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <span className="text-[10px] text-amber-500 font-semibold">(Unverified)</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Email Address</span>
+                    <div className="font-semibold flex items-center gap-1.5 mt-0.5">
+                      <Mail className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="truncate">{user.email || 'Not provided'}</span>
+                      {user.email && (user.isEmailVerified !== false ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <span className="text-[10px] text-amber-500 font-semibold">(Unverified)</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-[#C28E52]" />
+                      <span className="text-slate-500">Preferred Search City:</span>
+                      <strong className="text-slate-900 dark:text-white">
+                        {user.preferredCity || 'Mumbai'}
+                        {user.preferredLocality ? ` (${user.preferredLocality})` : ''}
+                      </strong>
+                    </div>
+                    {onSaveUser && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="text-[11px] text-[#C28E52] font-semibold hover:underline"
+                      >
+                        Change City Preference
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
                   <span className="text-slate-400 uppercase font-bold text-[10px]">Zero Brokerage</span>
@@ -314,6 +419,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <p className="text-[11px] text-slate-500">You are protected under NO BROKER Charter.</p>
                 </div>
               </div>
+
+              {onOpenHelpSupport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenHelpSupport();
+                  }}
+                  className="w-full p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-center justify-between text-xs text-[#0F172A] dark:text-white font-semibold hover:bg-amber-100/80 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-[#C28E52] flex items-center justify-center">
+                      <HelpCircle className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold text-xs">Report, Support &amp; Help Center</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                        Report property, fake broker, payment issue, or read FAQs
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-[#C28E52]">Open &gt;</span>
+                </button>
+              )}
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 justify-between items-center">
                 {user.isAuthenticated ? (
@@ -354,6 +483,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
       </div>
+
+      {/* Edit Profile Modal */}
+      {isEditModalOpen && onSaveUser && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          user={user}
+          onSaveUser={onSaveUser}
+          onCityPreferenceChanged={onCityPreferenceChanged}
+        />
+      )}
     </div>
   );
 };
