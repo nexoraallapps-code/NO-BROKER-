@@ -57,6 +57,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'saved' | 'posted'>('saved');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editModalInitialMode, setEditModalInitialMode] = useState<'default' | 'camera'>('default');
 
   if (!isOpen) return null;
 
@@ -82,9 +83,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               {onSaveUser && (
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(true)}
+                  onClick={() => {
+                    setEditModalInitialMode('camera');
+                    setIsEditModalOpen(true);
+                  }}
                   className="absolute -bottom-1 -right-1 p-1 rounded-full bg-[#0F172A] text-white hover:bg-[#C28E52] border border-white dark:border-slate-800 transition-colors cursor-pointer"
-                  title="Upload / Change Avatar"
+                  title="Take photo with camera"
                 >
                   <Camera className="w-3 h-3" />
                 </button>
@@ -109,14 +113,32 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           <div className="flex items-center gap-2">
             {onSaveUser && (
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-[#C28E52]" />
-                <span className="hidden sm:inline">Edit Profile</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditModalInitialMode('camera');
+                    setIsEditModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  title="Take profile photo with camera"
+                >
+                  <Camera className="w-3.5 h-3.5 text-emerald-200" />
+                  <span className="hidden sm:inline">Camera Photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditModalInitialMode('default');
+                    setIsEditModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#C28E52]" />
+                  <span className="hidden sm:inline">Edit Profile</span>
+                </button>
+              </>
             )}
 
             <button
@@ -492,6 +514,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           user={user}
           onSaveUser={onSaveUser}
           onCityPreferenceChanged={onCityPreferenceChanged}
+          initialMode={editModalInitialMode}
         />
       )}
     </div>

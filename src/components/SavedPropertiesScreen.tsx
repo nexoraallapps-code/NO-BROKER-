@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Property, UserProfile } from '../types';
 import { generateOwnerWhatsAppUrl } from '../utils/whatsapp';
 import { 
@@ -9,12 +9,20 @@ import {
   ArrowRight, 
   X, 
   Search, 
-  Home,
-  Eye,
-  Share2,
-  Check,
-  MessageSquare
+  Home, 
+  Eye, 
+  Share2, 
+  Check, 
+  MessageSquare,
+  Scale,
+  SlidersHorizontal,
+  Layers,
+  Sparkles,
+  Columns,
+  CheckSquare,
+  Square
 } from 'lucide-react';
+import { SavedPropertiesComparison } from './SavedPropertiesComparison';
 
 interface SavedPropertiesScreenProps {
   onBack: () => void;
@@ -35,9 +43,38 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
   onFindMore,
   user,
 }) => {
+  const [viewMode, setViewMode] = useState<'list' | 'compare'>('list');
   const [filterType, setFilterType] = useState<'all' | 'available' | 'furnished'>('all');
   const [previewEmptyView, setPreviewEmptyView] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Selected property IDs for side-by-side comparison (max 4)
+  const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([]);
+
+  // Automatically seed comparison selection with first 2 or 3 saved properties
+  useEffect(() => {
+    if (savedProperties.length > 0) {
+      // Keep only valid existing IDs in comparison set
+      setSelectedCompareIds((prev) => {
+        const valid = prev.filter((id) => savedProperties.some((p) => p.id === id));
+        if (valid.length >= 2) return valid;
+        return savedProperties.slice(0, Math.min(3, savedProperties.length)).map((p) => p.id);
+      });
+    }
+  }, [savedProperties]);
+
+  const handleToggleCompare = (propertyId: string) => {
+    setSelectedCompareIds((prev) => {
+      if (prev.includes(propertyId)) {
+        return prev.filter((id) => id !== propertyId);
+      } else {
+        if (prev.length >= 4) {
+          return [...prev.slice(1), propertyId];
+        }
+        return [...prev, propertyId];
+      }
+    });
+  };
 
   const filtered = savedProperties.filter((p) => {
     if (filterType === 'all') return true;
@@ -67,9 +104,9 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] pb-28">
+    <div className="w-full min-h-screen bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] pb-32">
       
-      {/* Fixed Header Bar exactly like User Mockup */}
+      {/* Fixed Header Bar */}
       <header className="sticky top-0 w-full z-40 bg-[#FBF9F6]/90 dark:bg-[#0A0F1D]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-16 max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           
@@ -116,12 +153,12 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
         </div>
       </header>
 
-      {/* Main Content Container matching Layout in User Spec */}
+      {/* Main Content Container */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         
         {/* View State Controller Header */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#0F172A] dark:text-white tracking-tight">
                 Saved Properties
@@ -131,192 +168,269 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
               </span>
             </div>
 
-            {/* Toggle between Active List and Empty State Preview */}
-            <button
-              onClick={() => setPreviewEmptyView(!previewEmptyView)}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors py-1.5 px-2.5 rounded-lg bg-[#F5F3F0] dark:bg-slate-800/80 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium">
-                {previewEmptyView ? 'Show Saved List' : 'Empty View'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Toggle between Active List and Empty State Preview */}
+              <button
+                onClick={() => setPreviewEmptyView(!previewEmptyView)}
+                className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors py-1.5 px-2.5 rounded-lg bg-[#F5F3F0] dark:bg-slate-800/80 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">
+                  {previewEmptyView ? 'Show Saved List' : 'Empty View'}
+                </span>
+              </button>
+            </div>
           </div>
 
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            All direct owner homes saved by you with zero brokerage.
+            All direct owner homes saved by you with zero brokerage. Compare BHK, rent, deposit, and amenities side by side.
           </p>
 
-          {/* Filter Chips Strip matching Exact Design */}
-          {!showEmpty && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-2">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filterType === 'all'
-                    ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
-                    : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
-                }`}
-              >
-                All ({savedProperties.length})
-              </button>
+          {/* View Mode Switcher Pills (List View vs Side-by-Side Compare) */}
+          {!showEmpty && savedProperties.length > 0 && (
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3">
+              <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 self-start">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`py-1.5 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>List View ({savedProperties.length})</span>
+                </button>
 
-              <button
-                onClick={() => setFilterType('available')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filterType === 'available'
-                    ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
-                    : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
-                }`}
-              >
-                Available Now ({availableCount})
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('compare')}
+                  className={`py-1.5 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    viewMode === 'compare'
+                      ? 'bg-[#C28E52] text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Side-by-Side Compare</span>
+                  {selectedCompareIds.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                      {selectedCompareIds.length}
+                    </span>
+                  )}
+                </button>
+              </div>
 
-              <button
-                onClick={() => setFilterType('furnished')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                  filterType === 'furnished'
-                    ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
-                    : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
-                }`}
-              >
-                Furnished ({furnishedCount})
-              </button>
+              {/* Filter Chips Strip (only in list mode) */}
+              {viewMode === 'list' && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  <button
+                    onClick={() => setFilterType('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      filterType === 'all'
+                        ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
+                        : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
+                    }`}
+                  >
+                    All ({savedProperties.length})
+                  </button>
+
+                  <button
+                    onClick={() => setFilterType('available')}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      filterType === 'available'
+                        ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
+                        : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
+                    }`}
+                  >
+                    Available ({availableCount})
+                  </button>
+
+                  <button
+                    onClick={() => setFilterType('furnished')}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      filterType === 'furnished'
+                        ? 'bg-[#0F172A] text-white dark:bg-[#C28E52]'
+                        : 'bg-[#F5F3F0] dark:bg-slate-800 text-[#1B1C1A] dark:text-slate-300 hover:bg-[#EFEEEB]'
+                    }`}
+                  >
+                    Furnished ({furnishedCount})
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Saved List or Empty View State */}
-        {!showEmpty ? (
+        {/* 1. Compare View Mode */}
+        {viewMode === 'compare' && !showEmpty ? (
+          <SavedPropertiesComparison
+            allSavedProperties={savedProperties}
+            selectedPropertyIds={selectedCompareIds}
+            onToggleSelectProperty={handleToggleCompare}
+            onSelectPropertyDetails={onSelectProperty}
+            onContactOwner={onContactOwner}
+            onRemoveSaved={onRemoveSaved}
+            onFindMore={onFindMore}
+            onBackToList={() => setViewMode('list')}
+          />
+        ) : !showEmpty ? (
+          /* 2. Standard List Feed View */
           <div className="space-y-6">
             
-            {/* Property Cards - Designed with exact typography & layout from user mockup */}
+            {/* Property Cards */}
             <div className="space-y-5">
-              {filtered.map((property) => (
-                <article
-                  key={property.id}
-                  className="bg-white dark:bg-[#0F172A] rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-[0_4px_24px_rgba(15,23,42,0.04)] transition-all duration-300"
-                >
-                  {/* Property Image Frame */}
-                  <div className="relative w-full aspect-[16/10] sm:aspect-[21/9] overflow-hidden bg-slate-900">
-                    <img
-                      src={property.images[0]}
-                      alt={property.title}
-                      className="w-full h-full object-cover object-center"
-                    />
+              {filtered.map((property) => {
+                const isCompared = selectedCompareIds.includes(property.id);
+                return (
+                  <article
+                    key={property.id}
+                    className={`bg-white dark:bg-[#0F172A] rounded-2xl overflow-hidden border transition-all duration-300 shadow-[0_4px_24px_rgba(15,23,42,0.04)] ${
+                      isCompared ? 'border-[#C28E52] ring-2 ring-[#C28E52]/20' : 'border-slate-200/90 dark:border-slate-800'
+                    }`}
+                  >
+                    {/* Property Image Frame */}
+                    <div className="relative w-full aspect-[16/10] sm:aspect-[21/9] overflow-hidden bg-slate-900">
+                      <img
+                        src={property.images[0]}
+                        alt={property.title}
+                        className="w-full h-full object-cover object-center"
+                      />
 
-                    {/* Top Badges Glass Overlay */}
-                    <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF8F5]/90 dark:bg-[#0F172A]/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700">
-                        <span className="w-2 h-2 rounded-full bg-[#0F5132]"></span>
-                        <span className="text-[10px] tracking-wider uppercase text-[#0F5132] dark:text-emerald-400 font-bold">
-                          0% Brokerage • Direct Owner
+                      {/* Top Badges Glass Overlay */}
+                      <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF8F5]/90 dark:bg-[#0F172A]/90 backdrop-blur-md shadow-sm border border-slate-200/50 dark:border-slate-700">
+                          <span className="w-2 h-2 rounded-full bg-[#0F5132]"></span>
+                          <span className="text-[10px] tracking-wider uppercase text-[#0F5132] dark:text-emerald-400 font-bold">
+                            0% Brokerage • Direct Owner
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 pointer-events-auto">
+                          {/* Compare Checkbox Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCompare(property.id);
+                            }}
+                            className={`px-3 py-1 rounded-full backdrop-blur-md text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+                              isCompared
+                                ? 'bg-[#C28E52] text-white ring-2 ring-white/50'
+                                : 'bg-[#FAF8F5]/90 dark:bg-[#0F172A]/90 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700 hover:border-[#C28E52]'
+                            }`}
+                            title="Toggle in side-by-side comparison"
+                          >
+                            <Scale className="w-3.5 h-3.5" />
+                            <span>{isCompared ? 'Comparing' : 'Compare'}</span>
+                          </button>
+
+                          <button
+                            aria-label="Remove from saved"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveSaved(property.id);
+                            }}
+                            className="w-9 h-9 rounded-full bg-[#FAF8F5]/90 dark:bg-[#0F172A]/90 backdrop-blur-md flex items-center justify-center text-[#C28E52] shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                          >
+                            <Heart className="w-5 h-5 fill-current text-rose-500" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Availability Ribbon on Image Bottom Left */}
+                      <div className="absolute bottom-3 left-3.5">
+                        <span className="px-2.5 py-1 rounded-full bg-[#0F172A]/85 backdrop-blur-md text-white text-[10px] font-semibold tracking-wide uppercase">
+                          {property.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Content Information */}
+                    <div className="p-4 sm:p-6 space-y-3">
+                      
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs sm:text-sm font-semibold text-[#C28E52] uppercase tracking-wider">
+                          {property.bhk}
+                        </span>
+                        <span className="text-xl sm:text-2xl font-bold font-serif text-[#0F172A] dark:text-white">
+                          {property.priceFormatted}
                         </span>
                       </div>
 
-                      <button
-                        aria-label="Remove from saved"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveSaved(property.id);
-                        }}
-                        className="pointer-events-auto w-9 h-9 rounded-full bg-[#FAF8F5]/90 dark:bg-[#0F172A]/90 backdrop-blur-md flex items-center justify-center text-[#C28E52] shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <Heart className="w-5 h-5 fill-current text-rose-500" />
-                      </button>
-                    </div>
-
-                    {/* Availability Ribbon on Image Bottom Left */}
-                    <div className="absolute bottom-3 left-3.5">
-                      <span className="px-2.5 py-1 rounded-full bg-[#0F172A]/85 backdrop-blur-md text-white text-[10px] font-semibold tracking-wide uppercase">
-                        {property.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card Content Information */}
-                  <div className="p-4 sm:p-6 space-y-3">
-                    
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-xs sm:text-sm font-semibold text-[#C28E52] uppercase tracking-wider">
-                        {property.bhk}
-                      </span>
-                      <span className="text-xl sm:text-2xl font-bold font-serif text-[#0F172A] dark:text-white">
-                        {property.priceFormatted}
-                      </span>
-                    </div>
-
-                    <h3 
-                      onClick={() => onSelectProperty(property)}
-                      className="text-lg sm:text-xl font-bold font-serif text-[#0F172A] dark:text-white hover:text-[#C28E52] cursor-pointer transition-colors"
-                    >
-                      {property.title}
-                    </h3>
-
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <MapPin className="w-3.5 h-3.5 text-[#C28E52] shrink-0" />
-                      <span className="truncate">{property.location}</span>
-                      {property.distanceFromUser && (
-                        <span>• {property.distanceFromUser}</span>
-                      )}
-                    </div>
-
-                    {/* Quick Tags matching mockup */}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
-                        {property.furnishing}
-                      </span>
-                      <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
-                        {property.carpetArea}
-                      </span>
-                      <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
-                        Owner: {property.owner.name}
-                      </span>
-                    </div>
-
-                    {/* Action Buttons: View Property (Primary) & Remove (Secondary) */}
-                    <div className="flex items-center gap-2 pt-3">
-                      <button
+                      <h3 
                         onClick={() => onSelectProperty(property)}
-                        className="flex-1 py-3 px-4 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] dark:bg-[#C28E52] dark:hover:bg-[#AB773D] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
+                        className="text-lg sm:text-xl font-bold font-serif text-[#0F172A] dark:text-white hover:text-[#C28E52] cursor-pointer transition-colors"
                       >
-                        <span>View Property</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        {property.title}
+                      </h3>
 
-                      <button
-                        onClick={() => onContactOwner(property)}
-                        className="py-3 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
-                      >
-                        Call
-                      </button>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <MapPin className="w-3.5 h-3.5 text-[#C28E52] shrink-0" />
+                        <span className="truncate">{property.location}</span>
+                        {property.distanceFromUser && (
+                          <span>• {property.distanceFromUser}</span>
+                        )}
+                      </div>
 
-                      <a
-                        href={generateOwnerWhatsAppUrl(property)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-3 px-3.5 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                        title={`Chat on WhatsApp with ${property.owner.name}`}
-                      >
-                        <MessageSquare className="w-4 h-4 text-emerald-300" />
-                        <span className="hidden sm:inline">WhatsApp</span>
-                      </a>
+                      {/* Quick Tags matching mockup */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
+                          {property.furnishing}
+                        </span>
+                        <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
+                          {property.carpetArea}
+                        </span>
+                        <span className="px-2.5 py-1 rounded bg-[#F1F5F9] dark:bg-slate-800 text-[#0F172A] dark:text-slate-200 text-[11px] font-medium">
+                          Owner: {property.owner.name}
+                        </span>
+                      </div>
 
-                      <button
-                        onClick={() => onRemoveSaved(property.id)}
-                        className="py-3 px-3 rounded-xl bg-[#F5F3F0] hover:bg-rose-50 dark:bg-slate-800/60 dark:hover:bg-rose-950/40 text-slate-500 hover:text-rose-600 transition-colors flex items-center justify-center gap-1 cursor-pointer text-xs"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Remove</span>
-                      </button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-2 pt-3">
+                        <button
+                          onClick={() => onSelectProperty(property)}
+                          className="flex-1 py-3 px-4 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] dark:bg-[#C28E52] dark:hover:bg-[#AB773D] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
+                        >
+                          <span>View Property</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => onContactOwner(property)}
+                          className="py-3 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#0F172A] dark:text-white font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+                        >
+                          Call
+                        </button>
+
+                        <a
+                          href={generateOwnerWhatsAppUrl(property)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-3 px-3.5 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          title={`Chat on WhatsApp with ${property.owner.name}`}
+                        >
+                          <MessageSquare className="w-4 h-4 text-emerald-300" />
+                          <span className="hidden sm:inline">WhatsApp</span>
+                        </a>
+
+                        <button
+                          onClick={() => onRemoveSaved(property.id)}
+                          className="py-3 px-3 rounded-xl bg-[#F5F3F0] hover:bg-rose-50 dark:bg-slate-800/60 dark:hover:bg-rose-950/40 text-slate-500 hover:text-rose-600 transition-colors flex items-center justify-center gap-1 cursor-pointer text-xs"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+
                     </div>
-
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
 
-            {/* Bottom Discovery Banner from user's screen */}
+            {/* Bottom Discovery Banner */}
             <div className="p-6 rounded-2xl bg-[#F5F3F0] dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-3">
               <div className="flex items-center gap-1.5 text-[#C28E52]">
                 <Home className="w-4 h-4" />
@@ -347,7 +461,7 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
 
           </div>
         ) : (
-          /* Full Empty State View exactly matching the user's HTML design */
+          /* Full Empty State View */
           <div className="flex flex-col items-center justify-center text-center py-16 px-4 space-y-4">
             <div className="w-20 h-20 rounded-full bg-[#F5F3F0] dark:bg-slate-800 flex items-center justify-center text-[#C28E52] shadow-inner">
               <Heart className="w-9 h-9" />
@@ -358,7 +472,7 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
                 No Saved Properties Yet
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                You haven&apos;t saved any properties so far. Click the heart icon on any property to save it here.
+                You haven&apos;t saved any properties so far. Click the heart icon on any property to save it and compare side by side.
               </p>
             </div>
 
@@ -386,6 +500,37 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
         )}
 
       </main>
+
+      {/* Floating Bottom Comparison Dock in List View */}
+      {viewMode === 'list' && !showEmpty && selectedCompareIds.length >= 2 && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] px-5 py-3 rounded-2xl shadow-2xl border border-slate-700/80 dark:border-slate-200 flex items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#C28E52] text-white flex items-center justify-center">
+              <Scale className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold font-serif">
+                {selectedCompareIds.length} Properties Selected
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-600">
+                Ready for side-by-side evaluation
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('compare');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="py-2 px-4 rounded-xl bg-[#C28E52] hover:bg-[#AB773D] text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+          >
+            <span>Compare Now</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
     </div>
   );

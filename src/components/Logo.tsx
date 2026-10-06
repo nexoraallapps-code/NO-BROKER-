@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface LogoProps {
   className?: string;
@@ -16,7 +17,12 @@ export const Logo: React.FC<LogoProps> = ({
   const iconHeight = size === 'sm' ? 28 : size === 'lg' ? 44 : 36;
 
   return (
-    <div className={`flex flex-col items-start select-none cursor-pointer group ${className}`}>
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+      className={`flex flex-col items-start select-none cursor-pointer group transition-all duration-300 hover:drop-shadow-md ${className}`}
+    >
       <div className="flex items-center gap-1.5">
         {/* Custom 3D Architectural Emblem */}
         <svg
@@ -131,6 +137,6 @@ export const Logo: React.FC<LogoProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

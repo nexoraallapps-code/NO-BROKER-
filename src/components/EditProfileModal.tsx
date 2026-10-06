@@ -63,6 +63,7 @@ interface EditProfileModalProps {
   onSaveUser: (updatedUser: Partial<UserProfile>) => void;
   onCityPreferenceChanged?: (newCity: string, newLocality?: string) => void;
   onUpdateSearchContext?: (context: { city: string; locality?: string; query?: string }) => void;
+  initialMode?: 'default' | 'camera';
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -72,6 +73,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onSaveUser,
   onCityPreferenceChanged,
   onUpdateSearchContext,
+  initialMode = 'default',
 }) => {
   // Form State
   const [name, setName] = useState(user.name || '');
@@ -139,6 +141,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setErrorMessage(null);
       setSaveSuccess(false);
       setAvatarPersistNotice(null);
+
+      if (initialMode === 'camera') {
+        setTimeout(() => {
+          startLiveCamera();
+        }, 100);
+      }
     } else {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -146,7 +154,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
       setIsLiveCameraOpen(false);
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, initialMode]);
 
   // Timers for OTP
   useEffect(() => {
@@ -260,7 +268,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       const dataUrl = await compressImageFile(file);
       setAvatar(dataUrl);
       setErrorMessage(null);
-      setAvatarPersistNotice('Photo uploaded from device! Click "Save Avatar to Profile" or Save Changes.');
+      // Immediately update user object state
+      onSaveUser({
+        ...user,
+        avatar: dataUrl,
+      });
+      setAvatarPersistNotice('✓ Profile photo updated & saved to user profile!');
+      setTimeout(() => setAvatarPersistNotice(null), 4000);
     } catch {
       setErrorMessage('Failed to process image. Please try another file.');
     } finally {
@@ -325,7 +339,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       ctx.drawImage(video, startX, startY, minSide, minSide, 0, 0, 400, 400);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       setAvatar(dataUrl);
-      setAvatarPersistNotice('Photo captured! Click "Save Avatar to Profile" or Save Changes.');
+      // Immediately update user object state
+      onSaveUser({
+        ...user,
+        avatar: dataUrl,
+      });
+      setAvatarPersistNotice('✓ Live camera photo taken & saved to user profile!');
+      setTimeout(() => setAvatarPersistNotice(null), 4000);
     }
     stopLiveCamera();
   };
@@ -599,15 +619,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => deviceFileInputRef.current?.click()}
-                    className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs text-xs"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-[#C28E52]" />
-                    <span>Upload from Device</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={() => {
                       const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
                       if (isMobile) {
@@ -616,19 +627,30 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                         startLiveCamera();
                       }
                     }}
-                    className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs text-xs"
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-slate-800 hover:from-[#C28E52] hover:to-[#AB773D] text-white font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm text-xs active:scale-98"
+                    title="Take a profile photo using your device camera"
                   >
-                    <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Use Camera</span>
+                    <Camera className="w-4 h-4 text-[#C28E52] group-hover:text-white" />
+                    <span>Take Photo with Camera</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deviceFileInputRef.current?.click()}
+                    className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-white hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs text-xs"
+                    title="Choose an existing image file from device storage"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Upload File</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={startLiveCamera}
-                    className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-transparent hover:border-slate-300 dark:hover:border-slate-600 flex items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer"
-                    title="Open in-browser live webcam viewfinder"
+                    className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 flex items-center gap-1 text-[11px] font-medium transition-colors cursor-pointer"
+                    title="Open live webcam stream overlay"
                   >
-                    <Camera className="w-3 h-3 text-slate-400" />
+                    <Smartphone className="w-3 h-3 text-emerald-500" />
                     <span>Live Viewfinder</span>
                   </button>
 

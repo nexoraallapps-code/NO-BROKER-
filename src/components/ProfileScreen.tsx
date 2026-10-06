@@ -56,6 +56,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onCityPreferenceChanged,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editModalInitialMode, setEditModalInitialMode] = useState<'default' | 'camera'>('default');
 
   return (
     <div className="w-full min-h-screen bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] pb-24">
@@ -80,7 +81,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsEditModalOpen(true)}
+              onClick={() => {
+                setEditModalInitialMode('camera');
+                setIsEditModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#0F5132] hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+              title="Take a profile photo with camera"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-200" />
+              <span className="hidden sm:inline">Camera Photo</span>
+              <span className="sm:hidden">Camera</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditModalInitialMode('default');
+                setIsEditModalOpen(true);
+              }}
               className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 dark:bg-[#C28E52] dark:hover:bg-[#AB773D] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -114,9 +132,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsEditModalOpen(true)}
+                onClick={() => {
+                  setEditModalInitialMode('camera');
+                  setIsEditModalOpen(true);
+                }}
                 className="absolute bottom-1 right-1 p-2 rounded-full bg-[#0F172A] text-white hover:bg-[#C28E52] transition-colors shadow-md border-2 border-white dark:border-slate-900 cursor-pointer"
-                title="Change Avatar"
+                title="Take photo with camera"
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -373,6 +394,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           user={user}
           onSaveUser={onSaveUser}
           onCityPreferenceChanged={onCityPreferenceChanged}
+          initialMode={editModalInitialMode}
         />
       )}
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import moversTruck from '../assets/images/movers_relocation_truck_1790309661673.jpg';
 import { CITIES } from '../data/mockProperties';
 import { 
@@ -49,7 +50,13 @@ export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity,
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Main Card Container matching Image 5 & Image 7 */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-xl">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-xl"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-12">
             
             {/* Left Image & Overlay Info (5 cols) */}
@@ -235,7 +242,7 @@ export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity,
             </div>
 
           </div>
-        </div>
+        </motion.div>
 
       </div>
 

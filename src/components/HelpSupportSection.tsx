@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Search,
   Plus,
@@ -276,7 +277,13 @@ export const HelpSupportSection: React.FC<HelpSupportSectionProps> = ({
         {/* ========================================================================= */}
         {/* HEADER SECTION                                                            */}
         {/* ========================================================================= */}
-        <div className="mb-8 sm:mb-10 text-center max-w-3xl mx-auto space-y-3">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mb-8 sm:mb-10 text-center max-w-3xl mx-auto space-y-3"
+        >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C28E52]/10 text-[#C28E52] text-xs font-bold uppercase tracking-wider">
             <HelpCircle className="w-3.5 h-3.5" />
             <span>Resolution &amp; Help Desk</span>
@@ -312,7 +319,7 @@ export const HelpSupportSection: React.FC<HelpSupportSectionProps> = ({
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ========================================================================= */}
         {/* 📱 MOBILE VIEW: Single Column Vertical Flow (Matches Exact Wireframe)      */}
