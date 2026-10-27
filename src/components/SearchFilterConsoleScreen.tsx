@@ -1143,7 +1143,7 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                       </span>
                     </div>
 
-                    {/* Bookmark Toggle */}
+                    {/* Wishlist Toggle Button */}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1151,10 +1151,12 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                         onToggleSave(prop.id);
                       }}
                       className={`absolute top-4 right-4 w-10 h-10 rounded-full backdrop-blur-md flex items-center justify-center transition-all cursor-pointer shadow-md ${
-                        isSaved ? 'bg-rose-500 text-white' : 'bg-white/80 dark:bg-black/60 text-slate-800 dark:text-white hover:text-rose-500'
+                        isSaved ? 'bg-rose-500 text-white ring-2 ring-rose-400/50' : 'bg-white/80 dark:bg-black/60 text-slate-800 dark:text-white hover:text-rose-500'
                       }`}
+                      aria-label={isSaved ? 'In your Wishlist - Click to remove' : 'Add to Wishlist'}
+                      title={isSaved ? 'In your Wishlist (Click to remove)' : 'Add to your Wishlist'}
                     >
-                      <Heart className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+                      <Heart className={`w-5 h-5 ${isSaved ? 'fill-current scale-110' : ''}`} />
                     </button>
 
                     <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">

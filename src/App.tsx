@@ -179,10 +179,10 @@ export default function App() {
 
     if (isAlreadySaved) {
       updatedSaved = user.savedPropertyIds.filter((id) => id !== propertyId);
-      showToast('Removed from Saved Properties');
+      showToast('Removed from your Wishlist');
     } else {
       updatedSaved = [...user.savedPropertyIds, propertyId];
-      showToast('Saved to your Shortlist ❤️');
+      showToast('Added to your Personal Wishlist ❤️');
     }
 
     setUser((prev) => ({
@@ -196,7 +196,7 @@ export default function App() {
       ...prev,
       savedPropertyIds: prev.savedPropertyIds.filter((id) => id !== propertyId),
     }));
-    showToast('Removed from Saved Properties');
+    showToast('Removed from your Wishlist');
   };
 
   const handleAddProperty = (newProp: Property) => {
@@ -390,7 +390,7 @@ export default function App() {
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              Saved Properties ({user.savedPropertyIds.length})
+              Personal Wishlist ({user.savedPropertyIds.length})
             </button>
             <button
               onClick={() => {
@@ -624,6 +624,7 @@ export default function App() {
             }
             showToast(`Search context updated to ${newCity}${newLocality ? ' • ' + newLocality : ''}`);
           }}
+          onRemoveSaved={handleRemoveSaved}
         />
       ) : (
         /* VIEW 8: Primary Core Real Estate Exploration (BUY, RENT, COMMERCIAL) */

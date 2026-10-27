@@ -51,14 +51,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }`}
         >
           <div className="relative flex items-center justify-center">
-            <Heart className={`w-5 h-5 ${activeTab === 'shortlisted' ? 'fill-current text-[#C28E52]' : ''}`} />
+            <Heart className={`w-5 h-5 ${activeTab === 'shortlisted' ? 'fill-rose-500 text-rose-500' : ''}`} />
             {savedCount > 0 && (
-              <span className="absolute -top-1 -right-2 min-w-[15px] h-3.5 px-1 rounded-full bg-[#C28E52] text-white text-[9px] leading-none flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-2 min-w-[15px] h-3.5 px-1 rounded-full bg-rose-600 text-white text-[9px] leading-none flex items-center justify-center font-bold">
                 {savedCount}
               </span>
             )}
           </div>
-          <span className="text-[10px]">Saved</span>
+          <span className="text-[10px]">Wishlist</span>
         </button>
 
         {/* Post Free Raised Pill Button */}

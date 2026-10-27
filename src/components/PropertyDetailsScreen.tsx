@@ -222,27 +222,27 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Bookmark Icon Button with immediate visual feedback */}
+            {/* Wishlist Heart Button with immediate visual feedback */}
             <button
               type="button"
               onClick={handleBookmarkToggle}
               className={`p-2.5 rounded-full transition-all duration-200 cursor-pointer relative group ${
                 isSaved 
-                  ? 'text-[#C28E52] bg-[#C28E52]/15 dark:bg-[#C28E52]/25 border border-[#C28E52]/40 shadow-sm' 
-                  : 'text-slate-600 dark:text-slate-300 hover:text-[#C28E52] hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-transparent'
-              } ${bookmarkAnimating ? 'scale-125 ring-4 ring-[#C28E52]/40' : 'hover:scale-105 active:scale-95'}`}
-              title={isSaved ? 'Bookmarked (Click to remove)' : 'Bookmark Property'}
-              aria-label={isSaved ? 'Remove bookmark' : 'Bookmark this property'}
+                  ? 'text-rose-500 bg-rose-50 dark:bg-rose-950/40 border border-rose-400/50 shadow-sm' 
+                  : 'text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 border border-transparent'
+              } ${bookmarkAnimating ? 'scale-125 ring-4 ring-rose-400/40' : 'hover:scale-105 active:scale-95'}`}
+              title={isSaved ? 'In your Wishlist (Click to remove)' : 'Add to Wishlist'}
+              aria-label={isSaved ? 'In your Wishlist' : 'Add to Wishlist'}
             >
-              <Bookmark 
+              <Heart 
                 className={`w-5 h-5 transition-transform duration-200 ${
                   isSaved 
-                    ? 'fill-current text-[#C28E52]' 
-                    : 'group-hover:scale-110 text-slate-600 dark:text-slate-300 group-hover:text-[#C28E52]'
+                    ? 'fill-rose-500 text-rose-500' 
+                    : 'group-hover:scale-110 text-slate-600 dark:text-slate-300 group-hover:text-rose-500'
                 }`} 
               />
               {isSaved && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#C28E52] ring-2 ring-[#FAF8F5] dark:ring-[#0A0F1D] animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-[#FAF8F5] dark:ring-[#0A0F1D] animate-pulse" />
               )}
             </button>
 
@@ -301,12 +301,12 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
                 type="button"
                 onClick={handleBookmarkToggle}
                 className={`flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isSaved ? 'text-[#C28E52] font-bold' : 'text-[#0F172A] dark:text-white hover:text-[#C28E52]'
+                  isSaved ? 'text-rose-500 font-bold' : 'text-[#0F172A] dark:text-white hover:text-rose-500'
                 }`}
-                title={isSaved ? 'Remove bookmark' : 'Bookmark property'}
+                title={isSaved ? 'In your Wishlist (Click to remove)' : 'Add to Wishlist'}
               >
-                <Bookmark className={`w-4 h-4 ${isSaved ? 'text-[#C28E52] fill-current scale-110' : ''}`} />
-                <span>{isSaved ? 'Bookmarked' : 'Bookmark'}</span>
+                <Heart className={`w-4 h-4 ${isSaved ? 'text-rose-500 fill-rose-500 scale-110' : ''}`} />
+                <span>{isSaved ? 'In Wishlist' : 'Add to Wishlist'}</span>
               </button>
               <button
                 onClick={handleShare}

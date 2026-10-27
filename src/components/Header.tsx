@@ -194,17 +194,20 @@ export const Header: React.FC<HeaderProps> = ({
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
             </button>
 
-            {/* Shortlist Badge - Opens Saved Properties View */}
+            {/* Wishlist Button - Opens Personal Wishlist View */}
             <button
               type="button"
               onClick={onOpenShortlisted}
-              className="relative p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              aria-label="Saved properties"
-              title="Saved Properties"
+              className="relative p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5"
+              aria-label="Personal Wishlist"
+              title="My Personal Wishlist"
             >
-              <Heart className="w-4 h-4 text-rose-500" />
+              <Heart className={`w-4 h-4 text-rose-500 ${user.savedPropertyIds.length > 0 ? 'fill-rose-500' : ''}`} />
+              <span className="hidden xl:inline text-xs font-semibold text-slate-700 dark:text-slate-200">
+                Wishlist
+              </span>
               {user.savedPropertyIds.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">
                   {user.savedPropertyIds.length}
                 </span>
               )}
@@ -271,7 +274,10 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                       className="w-full text-left px-3.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer"
                     >
-                      <span>Saved Properties</span>
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                        <span>My Personal Wishlist</span>
+                      </span>
                       <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-600 font-bold px-1.5 py-0.5 rounded">
                         {user.savedPropertyIds.length}
                       </span>

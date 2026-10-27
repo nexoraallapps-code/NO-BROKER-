@@ -6,16 +6,21 @@ import {
   Map, 
   ArrowUpDown, 
   Check, 
-  RotateCcw,
-  Sparkles,
-  ShieldCheck,
-  Building,
-  Key,
-  Filter,
-  DollarSign,
-  ChevronDown,
-  Layers,
-  X
+  RotateCcw, 
+  Sparkles, 
+  ShieldCheck, 
+  Building, 
+  Key, 
+  Filter, 
+  DollarSign, 
+  ChevronDown, 
+  Layers, 
+  X,
+  Car,
+  Bath,
+  Armchair,
+  CheckCircle2,
+  Heart
 } from 'lucide-react';
 
 interface PropertyListingsProps {
@@ -41,14 +46,19 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
   onToggleSave,
   onOpenMap,
 }) => {
-  // Advanced Filter state
+  // Core Filter state
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<PropertyType[]>([]);
   const [selectedBedrooms, setSelectedBedrooms] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(0); // 0 means no limit
-  const [selectedFurnishing, setSelectedFurnishing] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'relevance' | 'priceAsc' | 'priceDesc'>('relevance');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
+
+  // Advanced Search Filter state
+  const [selectedFurnishing, setSelectedFurnishing] = useState<string>('all'); // 'all' | 'Fully Furnished' | 'Semi-Furnished' | 'Unfurnished'
+  const [selectedBathrooms, setSelectedBathrooms] = useState<string>('all'); // 'all' | '1' | '2' | '3' | '4'
+  const [selectedParking, setSelectedParking] = useState<string>('all'); // 'all' | 'covered' | '2plus' | 'ev'
+  const [petFriendlyOnly, setPetFriendlyOnly] = useState<boolean>(false);
 
   // Property types list for buttons
   const PROPERTY_TYPES: { id: PropertyType; label: string }[] = [
@@ -92,6 +102,9 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
     setMinPrice(0);
     setMaxPrice(0);
     setSelectedFurnishing('all');
+    setSelectedBathrooms('all');
+    setSelectedParking('all');
+    setPetFriendlyOnly(false);
     setSortBy('relevance');
   };
 
@@ -101,9 +114,23 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
     minPrice > 0 ||
     maxPrice > 0 ||
     selectedFurnishing !== 'all' ||
+    selectedBathrooms !== 'all' ||
+    selectedParking !== 'all' ||
+    petFriendlyOnly ||
     sortBy !== 'relevance';
 
-  // Apply filtering
+  const activeFiltersCount = [
+    selectedPropertyTypes.length > 0,
+    selectedBedrooms.length > 0,
+    minPrice > 0 || maxPrice > 0,
+    selectedFurnishing !== 'all',
+    selectedBathrooms !== 'all',
+    selectedParking !== 'all',
+    petFriendlyOnly,
+    sortBy !== 'relevance'
+  ].filter(Boolean).length;
+
+  // Apply filtering with all options working in conjunction
   const filtered = useMemo(() => {
     return properties.filter((prop) => {
       // 1. Purpose filter
@@ -142,110 +169,142 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
         return false;
       }
 
-      // 6. Furnishing filter
-      if (selectedFurnishing !== 'all' && prop.furnishing !== selectedFurnishing) {
-        return false;
+      // 6. Furnished / Unfurnished filter
+      if (selectedFurnishing !== 'all') {
+        if (selectedFurnishing === 'Unfurnished') {
+          if (prop.furnishing !== 'Unfurnished' && prop.furnishing !== 'Bespoke Bare') {
+            return false;
+          }
+        } else if (prop.furnishing !== selectedFurnishing) {
+          return false;
+        }
+      }
+
+      // 7. Number of Bathrooms filter
+      if (selectedBathrooms !== 'all') {
+        const minBaths = parseInt(selectedBathrooms, 10);
+        if (prop.bathrooms < minBaths) {
+          return false;
+        }
+      }
+
+      // 8. Parking Availability filter
+      if (selectedParking !== 'all') {
+        const parkLower = (prop.parking || '').toLowerCase();
+        const amenitiesLower = (prop.amenities || []).map((a) => a.toLowerCase()).join(' ');
+
+        if (selectedParking === 'covered') {
+          const isCovered = 
+            parkLower.includes('covered') || 
+            parkLower.includes('stilt') || 
+            parkLower.includes('basement') ||
+            amenitiesLower.includes('covered parking');
+          if (!isCovered) return false;
+        } else if (selectedParking === '2plus') {
+          const has2Plus = 
+            parkLower.includes('2') || 
+            parkLower.includes('3') || 
+            parkLower.includes('4') ||
+            amenitiesLower.includes('2+') ||
+            amenitiesLower.includes('3 covered');
+          if (!has2Plus) return false;
+        } else if (selectedParking === 'ev') {
+          const hasEV = parkLower.includes('ev') || amenitiesLower.includes('ev');
+          if (!hasEV) return false;
+        }
+      }
+
+      // 9. Pet-Friendliness filter
+      if (petFriendlyOnly) {
+        const isPetFriendly = Boolean(
+          prop.petFriendly ||
+          prop.amenities?.some((a) => a.toLowerCase().includes('pet')) ||
+          prop.specifications?.tenantPreference?.toLowerCase().includes('pet')
+        );
+        if (!isPetFriendly) return false;
       }
 
       return true;
     });
-  }, [properties, activePurpose, selectedCity, selectedPropertyTypes, selectedBedrooms, minPrice, maxPrice, selectedFurnishing]);
+  }, [
+    properties,
+    activePurpose,
+    selectedCity,
+    selectedPropertyTypes,
+    selectedBedrooms,
+    minPrice,
+    maxPrice,
+    selectedFurnishing,
+    selectedBathrooms,
+    selectedParking,
+    petFriendlyOnly,
+  ]);
 
-  // Apply sorting: relevance, price low to high, price high to low
+  // Apply sorting
   const sorted = useMemo(() => {
-    const list = [...filtered];
-    if (sortBy === 'priceAsc') {
-      return list.sort((a, b) => a.price - b.price);
-    }
-    if (sortBy === 'priceDesc') {
-      return list.sort((a, b) => b.price - a.price);
-    }
-    // 'relevance' (featured first, then default order)
-    return list.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'priceAsc') {
+        return a.price - b.price;
+      }
+      if (sortBy === 'priceDesc') {
+        return b.price - a.price;
+      }
+      return 0; // relevance
+    });
   }, [filtered, sortBy]);
 
   return (
-    <section id="properties-section" className="py-10 sm:py-16 bg-[#FAF8F5] dark:bg-[#0A0F1D]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-[#C28E52]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C28E52]"></span>
-              <span>Direct Owner Portfolio</span>
-              <span>·</span>
-              <span>{selectedCity} Metropolis</span>
-            </div>
-            
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-serif text-slate-900 dark:text-white mt-1">
-              Curated Residences & Workspaces: <span className="font-normal italic text-[#C28E52]">{selectedCity} Prime</span>
-            </h2>
+    <section className="py-10 sm:py-16 bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-              Verified title deeds, direct contact with landlords, zero brokerage commission.
+        {/* Section Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#0F5132] dark:text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2 border border-emerald-200/60 dark:border-emerald-800/40">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Direct Title Deeds • 0% Middleman Commission</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-semibold font-serif tracking-tight text-[#1B1C1A] dark:text-white">
+              Residences in {selectedCity}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+              Verified owner listings in {selectedCity} with comprehensive architectural blueprints, direct WhatsApp chat, and 100% zero brokerage.
             </p>
           </div>
 
-          {/* Interactive Map Button */}
-          <div className="flex items-center gap-2.5">
+          {/* Quick Actions (Map view & Active Purpose switcher) */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               type="button"
               onClick={onOpenMap}
-              className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-[#C28E52] text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-300 dark:border-slate-700 hover:border-[#C28E52] text-xs font-semibold flex items-center gap-2 shadow-sm transition-all cursor-pointer"
             >
               <Map className="w-4 h-4 text-[#C28E52]" />
-              <span>Spatial Map View</span>
+              <span>Interactive Map View</span>
             </button>
           </div>
         </div>
 
-        {/* Primary Filter Toolbar */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 mb-8 shadow-xs space-y-4">
+        {/* Filter Console Bar Container */}
+        <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-4 sm:p-5 space-y-4">
           
-          {/* Row 1: Purpose Switcher + Property Types + Advanced Filter Toggle + Sorting */}
+          {/* Row 1: Property Types and Control Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             
-            {/* Purpose toggle */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-              <button
-                type="button"
-                onClick={() => onSelectPurpose('rent')}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                  activePurpose === 'rent'
-                    ? 'bg-slate-900 text-white dark:bg-[#C28E52] shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
-                }`}
-              >
-                Rent
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectPurpose('buy')}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                  activePurpose === 'buy'
-                    ? 'bg-slate-900 text-white dark:bg-[#C28E52] shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
-                }`}
-              >
-                Buy
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectPurpose('commercial')}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                  activePurpose === 'commercial'
-                    ? 'bg-slate-900 text-white dark:bg-[#C28E52] shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
-                }`}
-              >
-                Commercial
-              </button>
-            </div>
-
-            {/* Quick Property Type Chips */}
+            {/* Desktop Property Type Pills */}
             <div className="hidden lg:flex items-center gap-1.5 text-xs">
               <span className="text-slate-400 font-bold uppercase text-[10px] mr-1">Type:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedPropertyTypes([])}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                  selectedPropertyTypes.length === 0
+                    ? 'bg-slate-900 text-white dark:bg-[#C28E52] font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                All Types
+              </button>
               {PROPERTY_TYPES.map((pt) => {
                 const isSelected = selectedPropertyTypes.includes(pt.id);
                 return (
@@ -266,18 +325,18 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
             </div>
 
             {/* Right Tools: Advanced Filters Toggle & Sorting Dropdown */}
-            <div className="flex items-center gap-2.5 ml-auto">
+            <div className="flex items-center gap-2.5 ml-auto flex-wrap">
               <button
                 type="button"
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   showAdvancedFilters || hasActiveFilters
-                    ? 'border-[#C28E52] bg-amber-50/60 dark:bg-amber-950/30 text-[#C28E52]'
+                    ? 'border-[#C28E52] bg-amber-50/70 dark:bg-amber-950/40 text-[#C28E52]'
                     : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
                 }`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Filters {hasActiveFilters ? '• Active' : ''}</span>
+                <span>Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}</span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
               </button>
 
@@ -309,44 +368,102 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
 
           </div>
 
-          {/* Row 2: Bedroom (BHK) filter buttons */}
+          {/* Row 2: Bedroom (BHK) filter buttons + Quick Advanced Filters Pills */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-            <span className="text-slate-400 font-bold uppercase text-[10px] mr-1">Bedrooms:</span>
-            {BEDROOM_OPTIONS.map((bhk) => {
-              const isSelected = selectedBedrooms.includes(bhk);
-              return (
-                <button
-                  key={bhk}
-                  type="button"
-                  onClick={() => handleToggleBedroom(bhk)}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-slate-900 text-white dark:bg-[#C28E52] font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {bhk}
-                </button>
-              );
-            })}
-
-            {/* Mobile property type pills if screen is narrow */}
-            <div className="lg:hidden flex flex-wrap gap-1.5 ml-2">
-              {PROPERTY_TYPES.slice(0, 3).map((pt) => (
-                <button
-                  key={pt.id}
-                  type="button"
-                  onClick={() => handleToggleType(pt.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    selectedPropertyTypes.includes(pt.id)
-                      ? 'bg-slate-900 text-white dark:bg-[#C28E52]'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  {pt.label}
-                </button>
-              ))}
+            
+            {/* Bedrooms */}
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="text-slate-400 font-bold uppercase text-[10px] mr-1">Bedrooms:</span>
+              {BEDROOM_OPTIONS.map((bhk) => {
+                const isSelected = selectedBedrooms.includes(bhk);
+                return (
+                  <button
+                    key={bhk}
+                    type="button"
+                    onClick={() => handleToggleBedroom(bhk)}
+                    className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 text-white dark:bg-[#C28E52] font-bold'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {bhk}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Quick Furnishing Dropdown */}
+            <div className="flex items-center gap-1">
+              <Armchair className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedFurnishing}
+                onChange={(e) => setSelectedFurnishing(e.target.value)}
+                className={`text-xs py-1 px-2.5 rounded-lg border font-medium cursor-pointer transition-colors ${
+                  selectedFurnishing !== 'all'
+                    ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/30 text-[#C28E52] font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <option value="all">Any Furnishing</option>
+                <option value="Fully Furnished">Fully Furnished</option>
+                <option value="Semi-Furnished">Semi-Furnished</option>
+                <option value="Unfurnished">Unfurnished</option>
+              </select>
+            </div>
+
+            {/* Quick Bathrooms Dropdown */}
+            <div className="flex items-center gap-1">
+              <Bath className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedBathrooms}
+                onChange={(e) => setSelectedBathrooms(e.target.value)}
+                className={`text-xs py-1 px-2.5 rounded-lg border font-medium cursor-pointer transition-colors ${
+                  selectedBathrooms !== 'all'
+                    ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/30 text-[#C28E52] font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <option value="all">Any Baths</option>
+                <option value="1">1+ Bath</option>
+                <option value="2">2+ Baths</option>
+                <option value="3">3+ Baths</option>
+                <option value="4">4+ Baths</option>
+              </select>
+            </div>
+
+            {/* Quick Parking Dropdown */}
+            <div className="flex items-center gap-1">
+              <Car className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={selectedParking}
+                onChange={(e) => setSelectedParking(e.target.value)}
+                className={`text-xs py-1 px-2.5 rounded-lg border font-medium cursor-pointer transition-colors ${
+                  selectedParking !== 'all'
+                    ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/30 text-[#C28E52] font-bold'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <option value="all">Any Parking</option>
+                <option value="covered">Covered Parking</option>
+                <option value="2plus">2+ Parking Slots</option>
+                <option value="ev">EV Charger Ready ⚡</option>
+              </select>
+            </div>
+
+            {/* Pet-Friendly Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setPetFriendlyOnly(!petFriendlyOnly)}
+              className={`px-3 py-1 text-xs rounded-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                petFriendlyOnly
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
+              }`}
+            >
+              <span>🐾 Pet-Friendly Only</span>
+              {petFriendlyOnly && <Check className="w-3 h-3 stroke-[3]" />}
+            </button>
 
             {/* Result count indicator */}
             <div className="ml-auto text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -356,12 +473,12 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
 
           {/* Expanded Advanced Filters Panel */}
           {showAdvancedFilters && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in duration-200">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-200">
               
               {/* Filter 1: Property Type Multi-Select (Full) */}
               <div className="space-y-2">
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Property Types (Multi-Select)
+                  Property Types
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {PROPERTY_TYPES.map((pt) => {
@@ -468,28 +585,122 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
                 </div>
               </div>
 
-              {/* Filter 3: Furnishing Status & Actions */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Furnishing Status
-                </label>
-                <select
-                  value={selectedFurnishing}
-                  onChange={(e) => setSelectedFurnishing(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                >
-                  <option value="all">All Furnishing Types</option>
-                  <option value="Fully Furnished">Fully Furnished</option>
-                  <option value="Semi-Furnished">Semi-Furnished</option>
-                  <option value="Unfurnished">Unfurnished</option>
-                  <option value="Bespoke Bare">Bespoke Bare</option>
-                </select>
+              {/* Filter 3: Furnishing & Bathrooms */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Furnishing Status
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'all', label: 'All Furnishing' },
+                      { id: 'Fully Furnished', label: 'Furnished' },
+                      { id: 'Semi-Furnished', label: 'Semi-Furnished' },
+                      { id: 'Unfurnished', label: 'Unfurnished' },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setSelectedFurnishing(f.id)}
+                        className={`p-1.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between ${
+                          selectedFurnishing === f.id
+                            ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/20 text-[#C28E52] font-bold'
+                            : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <span>{f.label}</span>
+                        {selectedFurnishing === f.id && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Bathrooms
+                  </label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {['all', '1', '2', '3+'].map((b) => {
+                      const val = b === '3+' ? '3' : b;
+                      const isSelected = selectedBathrooms === val;
+                      return (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => setSelectedBathrooms(val)}
+                          className={`py-1 px-1.5 rounded-lg border text-center text-xs transition-colors ${
+                            isSelected
+                              ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/20 text-[#C28E52] font-bold'
+                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          {b === 'all' ? 'Any' : `${b} Bath`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter 4: Parking & Pet-Friendliness */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Parking Availability
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'all', label: 'Any Parking' },
+                      { id: 'covered', label: 'Covered / Stilt' },
+                      { id: '2plus', label: '2+ Slots' },
+                      { id: 'ev', label: 'EV Ready ⚡' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedParking(p.id)}
+                        className={`p-1.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between ${
+                          selectedParking === p.id
+                            ? 'border-[#C28E52] bg-amber-50 dark:bg-amber-950/20 text-[#C28E52] font-bold'
+                            : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <span className="truncate">{p.label}</span>
+                        {selectedParking === p.id && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <div 
+                    onClick={() => setPetFriendlyOnly(!petFriendlyOnly)}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                      petFriendlyOnly
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🐾</span>
+                      <div>
+                        <div className="text-xs font-bold">Pet-Friendly Residences</div>
+                        <div className="text-[10px] text-slate-400">Allows cats, dogs & pets</div>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${
+                      petFriendlyOnly ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {petFriendlyOnly && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="pt-2 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="text-xs text-rose-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Clear All Filters</span>
@@ -498,7 +709,7 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAdvancedFilters(false)}
-                    className="px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold"
+                    className="px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold cursor-pointer"
                   >
                     Apply Filters
                   </button>
@@ -519,7 +730,7 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
                   className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30"
                 >
                   <span>Type: {t}</span>
-                  <button onClick={() => handleToggleType(t)} className="hover:text-red-500">
+                  <button onClick={() => handleToggleType(t)} className="hover:text-red-500 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -531,7 +742,7 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
                   className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30"
                 >
                   <span>{b}</span>
-                  <button onClick={() => handleToggleBedroom(b)} className="hover:text-red-500">
+                  <button onClick={() => handleToggleBedroom(b)} className="hover:text-red-500 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -540,7 +751,7 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
               {(minPrice > 0 || maxPrice > 0) && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30">
                   <span>Price: {minPrice ? `₹${minPrice.toLocaleString()}` : '₹0'} - {maxPrice ? `₹${maxPrice.toLocaleString()}` : 'Any'}</span>
-                  <button onClick={() => { setMinPrice(0); setMaxPrice(0); }} className="hover:text-red-500">
+                  <button onClick={() => { setMinPrice(0); setMaxPrice(0); }} className="hover:text-red-500 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -548,8 +759,38 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
 
               {selectedFurnishing !== 'all' && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30">
-                  <span>{selectedFurnishing}</span>
-                  <button onClick={() => setSelectedFurnishing('all')} className="hover:text-red-500">
+                  <Armchair className="w-3 h-3 text-[#C28E52]" />
+                  <span>Furnishing: {selectedFurnishing}</span>
+                  <button onClick={() => setSelectedFurnishing('all')} className="hover:text-red-500 cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedBathrooms !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30">
+                  <Bath className="w-3 h-3 text-[#C28E52]" />
+                  <span>Bathrooms: {selectedBathrooms}+</span>
+                  <button onClick={() => setSelectedBathrooms('all')} className="hover:text-red-500 cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {selectedParking !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-[#C28E52] border border-[#C28E52]/30">
+                  <Car className="w-3 h-3 text-[#C28E52]" />
+                  <span>Parking: {selectedParking === 'covered' ? 'Covered' : selectedParking === '2plus' ? '2+ Slots' : 'EV Ready'}</span>
+                  <button onClick={() => setSelectedParking('all')} className="hover:text-red-500 cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {petFriendlyOnly && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  <span>🐾 Pet-Friendly Only</span>
+                  <button onClick={() => setPetFriendlyOnly(false)} className="hover:text-red-500 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -558,11 +799,19 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
               {sortBy !== 'relevance' && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   <span>Sort: {sortBy === 'priceAsc' ? 'Price Low-High' : 'Price High-Low'}</span>
-                  <button onClick={() => setSortBy('relevance')} className="hover:text-red-500">
+                  <button onClick={() => setSortBy('relevance')} className="hover:text-red-500 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
+
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs text-rose-600 hover:underline font-semibold ml-auto cursor-pointer"
+              >
+                Reset All
+              </button>
             </div>
           )}
 
@@ -589,12 +838,12 @@ export const PropertyListings: React.FC<PropertyListingsProps> = ({
               No matching properties found
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              No residences matched your specific price range, bedroom criteria, or property type in {selectedCity}. Try loosening the filters or reset to view all direct owner properties.
+              No residences matched your criteria (Furnishing, Bathrooms, Parking, Pet-Friendly, or Budget) in {selectedCity}. Try loosening some filters or reset to view all direct owner properties.
             </p>
             <button
               type="button"
               onClick={resetFilters}
-              className="py-2.5 px-6 rounded-xl bg-[#C28E52] text-white text-xs font-bold hover:bg-[#AB773D] transition-colors"
+              className="py-2.5 px-6 rounded-xl bg-[#C28E52] text-white text-xs font-bold hover:bg-[#AB773D] transition-colors cursor-pointer"
             >
               Reset All Filters
             </button>

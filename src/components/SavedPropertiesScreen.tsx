@@ -120,20 +120,45 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
             </button>
 
             <div className="flex flex-col">
-              <span className="text-[11px] tracking-wider uppercase text-[#C28E52] font-semibold">
-                Private Portfolio
+              <span className="text-[11px] tracking-wider uppercase text-[#C28E52] font-semibold flex items-center gap-1">
+                <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                <span>Personal Collection</span>
               </span>
               <h1 className="text-lg sm:text-xl font-bold font-serif text-[#0F172A] dark:text-white tracking-tight">
-                Saved Properties
+                My Personal Wishlist
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                const text = `Check out my curated real estate wishlist on NO BROKER: ${window.location.origin}`;
+                navigator.clipboard?.writeText(text);
+                setCopiedId('wishlist-all');
+                setTimeout(() => setCopiedId(null), 2500);
+              }}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#C28E52] flex items-center gap-1.5 transition-colors cursor-pointer bg-white dark:bg-slate-900 shadow-xs"
+              title="Share Wishlist"
+            >
+              {copiedId === 'wishlist-all' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Link Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-[#C28E52]" />
+                  <span>Share Wishlist</span>
+                </>
+              )}
+            </button>
+
             <div className="flex items-center gap-1.5 px-3 py-1 bg-[#EFEEEB] dark:bg-slate-800 rounded-full">
               <span className="w-2 h-2 rounded-full bg-[#0F5132]"></span>
               <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-wider">
-                Direct
+                Direct Owner
               </span>
             </div>
 
@@ -159,13 +184,18 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
         {/* View State Controller Header */}
         <div className="flex flex-col gap-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#0F172A] dark:text-white tracking-tight">
-                Saved Properties
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#EFEEEB] dark:bg-slate-800 text-[#C28E52] text-xs font-semibold">
-                {savedProperties.length} Properties Saved
-              </span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center shadow-xs">
+                <Heart className="w-5 h-5 fill-rose-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#0F172A] dark:text-white tracking-tight">
+                  My Personal Wishlist
+                </h2>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {savedProperties.length} residences saved • 100% Zero Brokerage
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -176,14 +206,14 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">
-                  {previewEmptyView ? 'Show Saved List' : 'Empty View'}
+                  {previewEmptyView ? 'Show Wishlist' : 'Demo Empty View'}
                 </span>
               </button>
             </div>
           </div>
 
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            All direct owner homes saved by you with zero brokerage. Compare BHK, rent, deposit, and amenities side by side.
+            All direct owner homes saved to your personal wishlist. Compare BHK, rent, deposit, and amenities side by side or connect directly via WhatsApp.
           </p>
 
           {/* View Mode Switcher Pills (List View vs Side-by-Side Compare) */}
@@ -467,12 +497,12 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
               <Heart className="w-9 h-9" />
             </div>
 
-            <div className="space-y-1 max-w-xs">
+            <div className="space-y-1 max-w-sm">
               <h3 className="text-2xl font-bold font-serif text-[#0F172A] dark:text-white">
-                No Saved Properties Yet
+                Your Wishlist is Empty
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                You haven&apos;t saved any properties so far. Click the heart icon on any property to save it and compare side by side.
+                You haven&apos;t added any residences to your personal wishlist yet. Tap the heart icon on any property to save it, compare specifications side by side, and contact verified owners.
               </p>
             </div>
 
@@ -483,7 +513,7 @@ export const SavedPropertiesScreen: React.FC<SavedPropertiesScreenProps> = ({
                 className="w-full py-3.5 px-6 rounded-xl bg-[#0F172A] hover:bg-[#C28E52] dark:bg-[#C28E52] dark:hover:bg-[#AB773D] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
               >
                 <Search className="w-4 h-4" />
-                <span>Find Property</span>
+                <span>Explore Properties &amp; Save</span>
               </button>
             </div>
 

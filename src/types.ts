@@ -27,6 +27,7 @@ export interface Property {
   images: string[];
   photos?: string[];
   description?: string;
+  petFriendly?: boolean;
   owner: {
     name: string;
     phone: string;
@@ -64,6 +65,9 @@ export interface FilterState {
   furnishing: string[];
   possession: string;
   searchRadius: number; // in km
+  bathrooms?: number | 'all';
+  parking?: 'all' | 'covered' | '2plus' | 'ev';
+  petFriendlyOnly?: boolean;
 }
 
 export interface UserProfile {

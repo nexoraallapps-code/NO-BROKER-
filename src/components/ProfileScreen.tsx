@@ -20,7 +20,10 @@ import {
   Sparkles,
   ChevronRight,
   Shield,
-  Coins
+  Coins,
+  Trash2,
+  Eye,
+  Compass
 } from 'lucide-react';
 import { EditProfileModal } from './EditProfileModal';
 
@@ -38,6 +41,7 @@ interface ProfileScreenProps {
   onLogout: () => void;
   onOpenAuth: () => void;
   onCityPreferenceChanged?: (newCity: string, newLocality?: string) => void;
+  onRemoveSaved?: (propertyId: string) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -54,6 +58,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onOpenAuth,
   onCityPreferenceChanged,
+  onRemoveSaved,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editModalInitialMode, setEditModalInitialMode] = useState<'default' | 'camera'>('default');
@@ -286,9 +291,126 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
 
+        {/* ======================================================== */}
+        {/* DEDICATED PERSONAL WISHLIST SECTION                      */}
+        {/* ======================================================== */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center">
+                <Heart className="w-5 h-5 fill-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>My Personal Wishlist</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 font-bold">
+                    {savedProperties.length} Saved
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Residences shortlisted by you with 0% middleman brokerage
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onNavigateSaved}
+              className="text-xs font-bold text-[#C28E52] hover:text-[#AB773D] flex items-center gap-1 cursor-pointer self-start sm:self-auto py-1 px-2.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+            >
+              <span>View Full Wishlist ({savedProperties.length})</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Wishlist Preview Grid */}
+          {savedProperties.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {savedProperties.slice(0, 4).map((prop) => (
+                <div
+                  key={prop.id}
+                  onClick={() => onSelectProperty(prop)}
+                  className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:border-[#C28E52]/60 transition-all flex items-center gap-3.5 cursor-pointer group"
+                >
+                  <img
+                    src={prop.images[0]}
+                    alt={prop.title}
+                    className="w-20 h-20 rounded-lg object-cover shrink-0 group-hover:scale-105 transition-transform"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold font-serif text-slate-900 dark:text-white">
+                        {prop.priceFormatted}
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded">
+                        0% Broker
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#C28E52] transition-colors">
+                      {prop.title}
+                    </h4>
+
+                    <div className="text-[11px] text-slate-400 truncate">
+                      {prop.location}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-[10px] font-medium text-slate-500">
+                        {prop.bhk} • {prop.bathrooms} Baths
+                      </span>
+
+                      {onRemoveSaved && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveSaved(prop.id);
+                          }}
+                          className="text-[10px] text-rose-500 hover:text-rose-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          title="Remove from Wishlist"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-6 px-4 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+              <Heart className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Your personal wishlist is currently empty. Tap the heart icon on any property to save it here.
+              </p>
+              <button
+                type="button"
+                onClick={onBack}
+                className="py-1.5 px-4 rounded-lg bg-[#C28E52] text-white text-xs font-bold hover:bg-[#AB773D] transition-colors cursor-pointer"
+              >
+                Browse Residences & Save
+              </button>
+            </div>
+          )}
+
+          {savedProperties.length > 4 && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={onNavigateSaved}
+                className="text-xs text-[#C28E52] font-semibold hover:underline cursor-pointer"
+              >
+                + See all {savedProperties.length} residences in your Wishlist
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Quick Navigations */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Saved Properties */}
+          {/* Wishlist Link Card */}
           <button
             type="button"
             onClick={onNavigateSaved}
@@ -300,10 +422,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
               <div>
                 <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-[#C28E52]">
-                  Saved Shortlists
+                  Personal Wishlist
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {savedProperties.length} properties saved
+                  {savedProperties.length} saved residences
                 </p>
               </div>
             </div>
