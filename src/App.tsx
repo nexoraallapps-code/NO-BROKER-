@@ -6,6 +6,12 @@
 import React, { useState, useEffect } from 'react';
 import { Property, PropertyPurpose, PropertyType, UserProfile } from './types';
 import { INITIAL_PROPERTIES } from './data/mockProperties';
+import { 
+  savePropertiesToStorage, 
+  loadPropertiesFromStorage, 
+  saveUserToStorage, 
+  loadUserFromStorage 
+} from './utils/storage';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { ConfigurationBrowse } from './components/ConfigurationBrowse';
@@ -157,14 +163,31 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
-  // Persist properties when changed
+  // Async initial load from high-capacity IndexedDB / LocalStorage
   useEffect(() => {
-    localStorage.setItem('nobroker_properties', JSON.stringify(properties));
+    loadPropertiesFromStorage().then((savedProps) => {
+      if (savedProps && savedProps.length > 0) {
+        const existingIds = new Set(savedProps.map((p) => p.id));
+        const missing = INITIAL_PROPERTIES.filter((p) => !existingIds.has(p.id));
+        setProperties([...savedProps, ...missing]);
+      }
+    });
+
+    loadUserFromStorage().then((savedUser) => {
+      if (savedUser && savedUser.savedPropertyIds) {
+        setUser(savedUser);
+      }
+    });
+  }, []);
+
+  // Persist properties when changed (supports high-res uploaded images via IndexedDB)
+  useEffect(() => {
+    savePropertiesToStorage(properties);
   }, [properties]);
 
   // Persist user when changed
   useEffect(() => {
-    localStorage.setItem('nobroker_user', JSON.stringify(user));
+    saveUserToStorage(user);
   }, [user]);
 
   const handleToggleDarkMode = () => {

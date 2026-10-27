@@ -73,10 +73,10 @@ export const ConfigurationBrowse: React.FC<ConfigurationBrowseProps> = ({
     <section className="py-10 sm:py-14 bg-[#FAF8F5] dark:bg-[#0A0F1D] border-b border-slate-200/80 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-8"
         >
           <div>

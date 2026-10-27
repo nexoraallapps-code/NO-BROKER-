@@ -51,10 +51,10 @@ export const PackersAndMovers: React.FC<PackersAndMoversProps> = ({ currentCity,
         
         {/* Main Card Container matching Image 5 & Image 7 */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-xl"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12">

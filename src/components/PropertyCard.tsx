@@ -84,14 +84,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none z-10">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0F5132]/95 backdrop-blur-md text-emerald-200 text-[10px] font-bold tracking-wider uppercase border border-emerald-500/30 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              0% Brokerage
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              0% Brokerage • Direct Owner
             </span>
 
             {property.owner.verifiedTitle && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0F172A]/90 backdrop-blur-md text-slate-100 text-[10px] font-semibold tracking-wide border border-slate-700/60 shadow-sm">
                 <ShieldCheck className="w-3 h-3 text-[#C28E52]" />
-                Verified Owner
+                Verified Title
               </span>
             )}
 
@@ -106,8 +106,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             {/* Interior Preview Indicator Pill on Hover */}
             <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-x-1 group-hover:translate-x-0 hidden sm:block pointer-events-none">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0F172A]/90 backdrop-blur-md text-amber-200 text-[10px] font-bold tracking-wider uppercase border border-amber-400/40 shadow-lg">
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                Interior Preview
+                <Sparkles className="w-3 h-3 text-amber-300 animate-spin" />
+                ✨ Interior Preview
               </span>
             </div>
 

@@ -13,8 +13,8 @@ export const PostPropertyBanner: React.FC<PostPropertyBannerProps> = ({
     <section className="py-12 sm:py-16 bg-[#FBF9F6] dark:bg-[#0A0F1D] border-y border-slate-200/80 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 30 }}
-          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F172A] via-[#131B2E] to-[#0A0F1D] text-white p-8 sm:p-12 lg:p-16 border border-[#C28E52]/30 shadow-2xl"

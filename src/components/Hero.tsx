@@ -99,9 +99,9 @@ export const Hero: React.FC<HeroProps> = ({
             
             {/* Eyebrow badge */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-wrap items-center justify-center lg:justify-start gap-2"
             >
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0F172A]/90 border border-[#C28E52]/40 backdrop-blur-md text-[11px] sm:text-xs font-semibold text-[#D4A366] tracking-widest uppercase shadow-sm">
@@ -121,7 +121,7 @@ export const Hero: React.FC<HeroProps> = ({
               )}
             </motion.div>
 
-            {/* Main Headline sliding up with Framer Motion */}
+            {/* Main Headline sliding up with Framer Motion custom cubic-bezier */}
             <motion.h1
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -134,14 +134,14 @@ export const Hero: React.FC<HeroProps> = ({
               </span>
             </motion.h1>
 
-            {/* Subtitle sliding up with Framer Motion */}
+            {/* Subtitle sliding up with Framer Motion custom cubic-bezier */}
             <motion.p
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.8, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
               className="text-sm sm:text-base lg:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 font-light leading-relaxed"
             >
-              India&apos;s premier zero-brokerage residential & commercial property network. 
+              India&apos;s premier zero-brokerage residential &amp; commercial property network. 
               Connect directly with verified title owners, without middleman commissions.
             </motion.p>
 
@@ -151,11 +151,11 @@ export const Hero: React.FC<HeroProps> = ({
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.02 }}
               transition={{ 
-                opacity: { duration: 0.85, delay: 0.25, ease: [0.16, 1, 0.3, 1] },
-                y: { duration: 0.85, delay: 0.25, ease: [0.16, 1, 0.3, 1] },
-                scale: { duration: 0.3, ease: 'easeOut' }
+                opacity: { duration: 0.85, delay: 0.28, ease: [0.16, 1, 0.3, 1] },
+                y: { duration: 0.85, delay: 0.28, ease: [0.16, 1, 0.3, 1] },
+                scale: { type: 'spring', stiffness: 350, damping: 22 }
               }}
-              className="mt-2 w-full bg-white/70 dark:bg-[#0F172A]/75 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16)] hover:shadow-[0_16px_48px_rgba(194,142,82,0.25)] border border-white/40 dark:border-white/15 text-[#1B1C1A] dark:text-[#F1F5F9] p-4 sm:p-5 transition-all duration-300"
+              className="mt-2 w-full bg-white/70 dark:bg-[#0F172A]/75 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.25)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.55)] border border-white/40 dark:border-white/15 text-[#1B1C1A] dark:text-[#F1F5F9] p-4 sm:p-5 transition-all duration-300"
             >
               {/* Purpose Tabs & Zero Commission Trust Badge */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800 pb-3 mb-3">

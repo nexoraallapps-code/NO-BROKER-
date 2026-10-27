@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Property, PropertyPurpose, PropertyType, FurnishingState } from '../types';
 import { CITIES, LOCALITIES_BY_CITY } from '../data/mockProperties';
+import { resizeAndOptimizeHDImage } from '../utils/imageUtils';
+import { compressAndResizeImage } from '../utils/imageProcessor';
+import { uploadPropertyImageToSupabase } from '../services/supabase';
 import heroVilla from '../assets/images/hero_villa_twilight_1790309610252.jpg';
 import interiorLiving from '../assets/images/property_interior_living_1790309634351.jpg';
 import propertyBandra from '../assets/images/property_penthouse_bandra_1790309622284.jpg';
@@ -220,20 +223,21 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   };
 
   // Image Upload Handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setImages((prev) => [...prev, event.target!.result as string]);
-          showToast('New photo uploaded successfully!');
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    const fileList = Array.from(files);
+    for (const file of fileList) {
+      try {
+        const compressedDataUrl = await compressAndResizeImage(file, 1200);
+        const supabaseResult = await uploadPropertyImageToSupabase(compressedDataUrl, 'listings');
+        setImages((prev) => [...prev, supabaseResult.url]);
+        showToast('New photo uploaded to Supabase Storage!');
+      } catch (err) {
+        console.error('Failed to process upload file', err);
+      }
+    }
 
     e.target.value = '';
   };

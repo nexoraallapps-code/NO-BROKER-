@@ -278,10 +278,10 @@ export const HelpSupportSection: React.FC<HelpSupportSectionProps> = ({
         {/* HEADER SECTION                                                            */}
         {/* ========================================================================= */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="mb-8 sm:mb-10 text-center max-w-3xl mx-auto space-y-3"
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C28E52]/10 text-[#C28E52] text-xs font-bold uppercase tracking-wider">

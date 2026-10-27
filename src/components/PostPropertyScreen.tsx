@@ -1,6 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { Property, PropertyType, PropertyPurpose, FurnishingState, UserProfile } from '../types';
 import { CITIES } from '../data/mockProperties';
+import { resizeAndOptimizeHDImage, compressAndOptimizeImage } from '../utils/imageUtils';
+import { compressAndResizeImage } from '../utils/imageProcessor';
+import { 
+  supabase, 
+  BUCKET_NAME, 
+  uploadPropertyImageToSupabase, 
+  uploadToPropertyImagesBucket, 
+  isSupabaseConfigured 
+} from '../services/supabase';
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -117,7 +126,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   );
 
   // Mock Image URL System State
-  const [photoInputMode, setPhotoInputMode] = useState<'url' | 'presets' | 'upload'>('url');
+  const [photoInputMode, setPhotoInputMode] = useState<'url' | 'presets' | 'upload'>('upload');
   const [inputImageUrl, setInputImageUrl] = useState<string>('');
   const [inputImageLabel, setInputImageLabel] = useState<string>('Living Room');
   const [urlError, setUrlError] = useState<string>('');
@@ -211,12 +220,12 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
-  const processFiles = (fileList: FileList | File[]) => {
+  const processFiles = async (fileList: FileList | File[]) => {
     const rawFiles = Array.from(fileList);
     const validImageFiles = rawFiles.filter((f) => f.type.startsWith('image/'));
 
     if (validImageFiles.length === 0) {
-      showToast('Please select valid image files (PNG, JPG, JPEG, WEBP)');
+      showToast('Please select valid image files (PNG, JPG, JPEG, WEBP, HEIC)');
       return;
     }
 
@@ -232,41 +241,54 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
       showToast(`Only ${availableSlots} more photo(s) can be added (Max 10 total)`);
     }
 
-    let loadedCount = 0;
+    showToast('✨ Resizing & uploading to Supabase Storage Bucket...');
+
     const defaultLabels = ['Living Room', 'Master Bedroom', 'Modular Kitchen', 'Balcony Deck', 'Spa Bathroom', 'Building Facade'];
 
-    filesToRead.forEach((file, index) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dataUrl = event.target.result as string;
-          const labelIndex = (photos.length + loadedCount) % defaultLabels.length;
-          const assignedLabel = defaultLabels[labelIndex];
+    let addedCount = 0;
+    let supabaseUploads = 0;
 
-          setPhotos((prev) => {
-            const hasCover = prev.some((p) => p.isCover);
-            return [
-              ...prev,
-              {
-                id: Date.now() + Math.floor(Math.random() * 10000) + index,
-                url: dataUrl,
-                label: assignedLabel,
-                isCover: !hasCover && prev.length === 0,
-              },
-            ];
-          });
+    for (let index = 0; index < filesToRead.length; index++) {
+      const file = filesToRead[index];
+      try {
+        // 1. Compress client-side into clean 1200px JPEG
+        const compressedDataUrl = await compressAndResizeImage(file, 1200);
 
-          loadedCount += 1;
-          if (loadedCount === filesToRead.length) {
-            showToast(`${loadedCount} photo(s) uploaded successfully! 📸`);
-          }
+        // 2. Upload to Supabase Storage Bucket 'property-images'
+        const supabaseResult = await uploadPropertyImageToSupabase(compressedDataUrl, 'listings');
+
+        const labelIndex = (photos.length + addedCount) % defaultLabels.length;
+        const assignedLabel = defaultLabels[labelIndex];
+
+        setPhotos((prev) => {
+          const hasCover = prev.some((p) => p.isCover);
+          return [
+            ...prev,
+            {
+              id: Date.now() + Math.floor(Math.random() * 10000) + index,
+              url: supabaseResult.url,
+              label: assignedLabel,
+              isCover: !hasCover && prev.length === 0,
+            },
+          ];
+        });
+
+        addedCount++;
+        if (supabaseResult.isSupabaseUrl) {
+          supabaseUploads++;
         }
-      };
-      reader.onerror = () => {
-        showToast(`Failed to upload ${file.name}`);
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.error('Failed to process and upload image:', err);
+      }
+    }
+
+    if (addedCount > 0) {
+      if (supabaseUploads > 0) {
+        showToast(`✨ ${addedCount} photo(s) uploaded to Supabase Storage Bucket! ☁️`);
+      } else {
+        showToast(`✨ ${addedCount} photo(s) saved & persisted safely! 📸`);
+      }
+    }
   };
 
   const handleAddImageUrl = (urlToAdd?: string, labelToAdd?: string) => {
@@ -1168,12 +1190,15 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                         <Camera className="w-6 h-6 text-[#C28E52]" />
                       </div>
 
-                      <div className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white">
-                        Click to upload photos or drag &amp; drop
+                      <div className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white flex flex-col sm:flex-row items-center gap-1.5">
+                        <span>Click to upload photos or drag &amp; drop</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#C28E52]/20 text-[#C28E52] dark:text-amber-300 text-[10px] font-extrabold uppercase tracking-wider">
+                          ✨ Auto HD Resizer &amp; Card-Fit
+                        </span>
                       </div>
 
-                      <p className="text-[11px] text-slate-500 mt-1 max-w-sm">
-                        Select photos from your device (Living Room, Bedroom, Kitchen, Balcony). PNG, JPG, JPEG, WEBP up to 15MB each.
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-md leading-relaxed">
+                        Upload any image size (4K/8K cameras, mobile shots, portrait or landscape). Automatically resizes to high-definition &amp; fits property cards perfectly.
                       </p>
 
                       <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3.5">
