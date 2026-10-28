@@ -35,6 +35,7 @@ import { InfoModal } from './components/InfoModals';
 import { HelpSupportScreen, HelpSupportInitialReport } from './components/HelpSupportScreen';
 import { HelpSupportSection } from './components/HelpSupportSection';
 import { PackersAndMovers } from './components/PackersAndMovers';
+import { RecentlyViewedCarousel } from './components/RecentlyViewedCarousel';
 
 export type AppView = 
   | 'explore' 
@@ -70,6 +71,20 @@ export default function App() {
   
   // Default selectedProperty is never null so the monograph screen always displays
   const [selectedProperty, setSelectedProperty] = useState<Property>(() => INITIAL_PROPERTIES[0]);
+
+  // Recently viewed properties tracking (last 3 visited salons/properties)
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('nobroker_recently_viewed');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        // default fallback
+      }
+    }
+    return ['NB-PLH-942', 'NB-CTR-810', 'NB-WRL-928'];
+  });
 
   // Active core real estate view
   const [currentView, setCurrentView] = useState<AppView>('explore');
@@ -245,12 +260,24 @@ export default function App() {
     setCurrentView('property-details');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`Direct verified contact for ${property.owner.name} ready!`);
+
+    setRecentlyViewedIds((prev) => {
+      const next = [property.id, ...prev.filter((id) => id !== property.id)].slice(0, 3);
+      localStorage.setItem('nobroker_recently_viewed', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleViewPropertyDetails = (property: Property) => {
     setSelectedProperty(property);
     setCurrentView('property-details');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    setRecentlyViewedIds((prev) => {
+      const next = [property.id, ...prev.filter((id) => id !== property.id)].slice(0, 3);
+      localStorage.setItem('nobroker_recently_viewed', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleAuthSuccess = (authenticatedUser: UserProfile) => {
@@ -340,6 +367,9 @@ export default function App() {
 
   const savedPropertiesList = properties.filter((p) => user.savedPropertyIds.includes(p.id));
   const postedPropertiesList = properties.filter((p) => user.postedPropertyIds.includes(p.id));
+  const recentlyViewedProperties = recentlyViewedIds
+    .map((id) => properties.find((p) => p.id === id))
+    .filter((p): p is Property => p !== undefined);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBF9F6] dark:bg-[#0A0F1D] text-[#1B1C1A] dark:text-[#F1F5F9] transition-colors duration-200 selection:bg-[#C28E52]/20 selection:text-[#C28E52]">
@@ -705,6 +735,17 @@ export default function App() {
               onViewMonograph={() => {
                 setCurrentView('property-details');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
+            {/* Recently Viewed Carousel */}
+            <RecentlyViewedCarousel
+              recentlyViewed={recentlyViewedProperties}
+              onSelectProperty={handleViewPropertyDetails}
+              onClearHistory={() => {
+                setRecentlyViewedIds([]);
+                localStorage.removeItem('nobroker_recently_viewed');
+                showToast('Recently viewed history cleared');
               }}
             />
 

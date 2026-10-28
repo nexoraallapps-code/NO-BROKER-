@@ -8,6 +8,7 @@ import {
   BUCKET_NAME, 
   uploadPropertyImageToSupabase, 
   uploadToPropertyImagesBucket, 
+  dataURLtoBlob,
   isSupabaseConfigured 
 } from '../services/supabase';
 import { 
@@ -241,7 +242,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
       showToast(`Only ${availableSlots} more photo(s) can be added (Max 10 total)`);
     }
 
-    showToast('✨ Resizing & uploading to Supabase Storage Bucket...');
+    showToast('✨ Multi-step upload: Compressing & uploading to Supabase Storage...');
 
     const defaultLabels = ['Living Room', 'Master Bedroom', 'Modular Kitchen', 'Balcony Deck', 'Spa Bathroom', 'Building Facade'];
 
@@ -251,11 +252,24 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
     for (let index = 0; index < filesToRead.length; index++) {
       const file = filesToRead[index];
       try {
-        // 1. Compress client-side into clean 1200px JPEG
+        // Multi-Step Upload Flow:
+        // Step 1: Process user's local image via compression utility (compressAndResizeImage)
         const compressedDataUrl = await compressAndResizeImage(file, 1200);
 
-        // 2. Upload to Supabase Storage Bucket 'property-images'
-        const supabaseResult = await uploadPropertyImageToSupabase(compressedDataUrl, 'listings');
+        // Convert compressed data URL to binary Blob
+        const imageBlob = dataURLtoBlob(compressedDataUrl);
+        const fileName = `listings/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+
+        // Step 2 & 3: Securely upload resulting blob to the 'property-images' storage bucket and capture public URL
+        let publicUrl = compressedDataUrl;
+        let isSupabase = false;
+
+        try {
+          publicUrl = await uploadToPropertyImagesBucket(imageBlob, fileName);
+          isSupabase = true;
+        } catch (uploadErr) {
+          console.warn('Supabase storage bucket upload exception, falling back to local compressed URL:', uploadErr);
+        }
 
         const labelIndex = (photos.length + addedCount) % defaultLabels.length;
         const assignedLabel = defaultLabels[labelIndex];
@@ -266,7 +280,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
             ...prev,
             {
               id: Date.now() + Math.floor(Math.random() * 10000) + index,
-              url: supabaseResult.url,
+              url: publicUrl,
               label: assignedLabel,
               isCover: !hasCover && prev.length === 0,
             },
@@ -274,7 +288,7 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
         });
 
         addedCount++;
-        if (supabaseResult.isSupabaseUrl) {
+        if (isSupabase) {
           supabaseUploads++;
         }
       } catch (err) {
@@ -284,9 +298,9 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
 
     if (addedCount > 0) {
       if (supabaseUploads > 0) {
-        showToast(`✨ ${addedCount} photo(s) uploaded to Supabase Storage Bucket! ☁️`);
+        showToast(`✨ ${addedCount} photo(s) successfully compressed, uploaded to Supabase 'property-images' bucket, and public URLs captured! ☁️`);
       } else {
-        showToast(`✨ ${addedCount} photo(s) saved & persisted safely! 📸`);
+        showToast(`✨ ${addedCount} photo(s) compressed & added successfully! 📸`);
       }
     }
   };
