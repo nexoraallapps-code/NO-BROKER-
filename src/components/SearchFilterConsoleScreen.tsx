@@ -510,7 +510,7 @@ export const SearchFilterConsoleScreen: React.FC<SearchFilterConsoleScreenProps>
                     >
                       {CITIES.map((c) => (
                         <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                          {c}
+                          {c === 'Jaipur' ? 'Jaipur (Popular 🔥)' : c}
                         </option>
                       ))}
                     </select>

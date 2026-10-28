@@ -119,10 +119,10 @@ export const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   ]);
 
   // Location State
-  const [city, setCity] = useState<string>('Mumbai');
-  const [locality, setLocality] = useState<string>('Bandra West');
+  const [city, setCity] = useState<string>('Jaipur');
+  const [locality, setLocality] = useState<string>('Vaishali Nagar');
   const [fullAddress, setFullAddress] = useState<string>(
-    'Flat 702, Green View Heights, Pali Hill, Bandra West, Mumbai 400050'
+    'Villa 12, Amrapali Marg, Vaishali Nagar, Jaipur, Rajasthan 302021'
   );
 
   // Mock Image URL System State

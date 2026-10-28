@@ -92,7 +92,7 @@ export const PostPropertyModal: React.FC<PostPropertyModalProps> = ({
   const [propertyType, setPropertyType] = useState<PropertyType>('flat');
 
   // Step 2: Location & Size
-  const [city, setCity] = useState<string>('Mumbai');
+  const [city, setCity] = useState<string>('Jaipur');
   const [locality, setLocality] = useState<string>('');
   const [societyName, setSocietyName] = useState<string>('');
   const [bhk, setBhk] = useState<string>('2 BHK');

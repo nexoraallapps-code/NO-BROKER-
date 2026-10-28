@@ -1208,12 +1208,12 @@ export const INITIAL_PROPERTIES: Property[] = [
 ];
 
 export const CITIES = [
+  'Jaipur',
   'Mumbai',
   'Delhi NCR',
   'Bangalore',
   'Pune',
   'Hyderabad',
-  'Jaipur',
   'Chennai',
   'Kolkata'
 ];

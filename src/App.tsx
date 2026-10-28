@@ -64,7 +64,7 @@ export default function App() {
     return INITIAL_PROPERTIES;
   });
 
-  const [selectedCity, setSelectedCity] = useState<string>('Mumbai');
+  const [selectedCity, setSelectedCity] = useState<string>('Jaipur');
   const [activePurpose, setActivePurpose] = useState<PropertyPurpose>('rent');
   const [searchConsoleQuery, setSearchConsoleQuery] = useState<string>('');
   
@@ -102,7 +102,7 @@ export default function App() {
       savedPropertyIds: ['NB-PLH-942', 'NB-CTR-810', 'NB-WRL-928'],
       contactsRemaining: 5,
       postedPropertyIds: [],
-      preferredCity: 'Mumbai',
+      preferredCity: 'Jaipur',
       preferredLocality: '',
       isPhoneVerified: false,
       isEmailVerified: false,

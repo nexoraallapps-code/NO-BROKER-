@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
                           <span>{city}</span>
                           {city === 'Jaipur' && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300">
-                              Heritage Prime
+                              Popular 🔥
                             </span>
                           )}
                         </span>
